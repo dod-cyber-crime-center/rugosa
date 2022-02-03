@@ -1,0 +1,10 @@
+*.pyc
+.idea
+*.egg-info
+build/
+dist/
+.tox/
+.nox/
+venv/
+dist/
+.vscode/

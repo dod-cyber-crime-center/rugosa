@@ -1,0 +1,17 @@
+"""
+Contains custom exceptions used to help distinguish emulation errors from
+errors caused by bugs.
+"""
+
+
+class EmulationError(Exception):
+    def __init__(self, message, ip=None):
+        super().__init__(message)
+        self.ip = ip
+
+    def __str__(self):
+        message = super().__str__()
+        if self.ip is not None:
+            return f"0x{self.ip:X} :: " + message
+        else:
+            return message

@@ -1,0 +1,369 @@
+"""
+Functions found in advapi32.dll
+
+Security functions for manipulating the Windows Registry.
+"""
+
+import logging
+
+from . import constants as wc
+from ... import actions, utils, constants, objects
+from ...call_hooks import builtin_func
+
+logger = logging.getLogger(__name__)
+
+
+def _get_reg_key(cpu_context, root_key_handle, sub_key_ptr, wide=False):
+    """
+    Retrieves the root key and sub key strings from the given hKey and lpSubKey arguments.
+
+    :param root_key_handle: The hKey argument (the HKEY handle for the root key)
+    :param sub_key_ptr: The lpSubKey argument (the pointer to the sub key string)
+    :param wide: Whether strings are utf16 or utf8
+    """
+    # Make sure root_key_handle is 32-bit
+    root_key_handle &= 0xFFFFFFFF
+    # Get root key
+    try:
+        reg_key = cpu_context.objects[root_key_handle]
+        root_key = reg_key.path
+    except KeyError:
+        if root_key_handle in wc.RegistryKey.__members__.values():
+            # root key is a predefined enum.
+            root_key = wc.RegistryKey(root_key_handle).name
+        else:
+            logger.warning("Invalid registry key 0x%X, using hex string.", root_key_handle)
+            root_key = hex(root_key_handle)
+
+    # Get sub key
+    if not sub_key_ptr:
+        sub_key = None
+    else:
+        sub_key = cpu_context.memory.read_string(sub_key_ptr, wide=wide)
+
+    return root_key, sub_key
+
+
+@builtin_func("RegOpenKeyA")
+@builtin_func("RegOpenKeyW")
+@builtin_func("RegOpenKeyExA")
+@builtin_func("RegOpenKeyExW")
+@builtin_func("RegCreateKeyA")
+@builtin_func("RegCreateKeyW")
+@builtin_func("RegCreateKeyExA")
+@builtin_func("RegCreateKeyExW")
+#typespec("LSTATUS RegOpenKeyA(HKEY hKey, LPCSTR lpSubKey, PHKEY phkResult)")
+#typespec("int RegCreateKeyA(HKEY hKey, char* lpSubKey, HKEY* phkResult);")
+#typespec("int RegCreateKeyW(HKEY hKey, wchar* lpSubKey, HKEY* phkResult);")
+#typespec("int RegCreateKeyExA(HKEY hKey, char* lpSubKey, DWORD, char* lpClass, DWORD dwOptions, REGSAM samDesired, const SECURITY_ATTRIBUTES* lpSecurityAttributes, HKEY* phkResult, DWORD* lpdwDisposition);")
+#typespec("int RegCreateKeyExA(HKEY hKey, wchar* lpSubKey, DWORD, wchar* lpClass, DWORD dwOptions, REGSAM samDesired, const SECURITY_ATTRIBUTES* lpSecurityAttributes, HKEY* phkResult, DWORD* lpdwDisposition);")
+def reg_open_key(cpu_context, func_name, func_args):
+    """
+    Opens/Creates the specified registry key
+
+    We are merging RegOpenKey* and RegCreateKey* because their effects are essentially same except
+    for the extra disposition argument.
+    """
+    wide = func_name.endswith("W")
+    root_key_handle, sub_key_ptr, *rest = func_args
+    if func_name.startswith("RegCreateKeyEx"):
+        result_ptr = rest[-2]  # RegCreateKeyEx has an extra disposition argument at the end.
+    else:
+        result_ptr = rest[-1]  # result pointer is last argument in both Ex and non-Ex versions.
+
+    root_key, sub_key = _get_reg_key(cpu_context, root_key_handle, sub_key_ptr, wide)
+
+    # If subkey is null or an empty string, result is the same as the root key handle.
+    if not sub_key:
+        disposition = wc.REG_OPENED_EXISTING_KEY
+        cpu_context.memory.write(
+            result_ptr, root_key_handle.to_bytes(cpu_context.byteness, cpu_context.byteorder)
+        )
+        logger.debug("Opening existing registry key: %s", root_key)
+
+    # Otherwise create new RegKey object.
+    else:
+        disposition = wc.REG_CREATED_NEW_KEY
+        path = "\\".join([root_key, sub_key])
+        handle = cpu_context.objects.alloc()
+        cpu_context.memory.write(
+            result_ptr, handle.to_bytes(cpu_context.byteness, cpu_context.byteorder)
+        )
+        cpu_context.actions.add(
+            actions.RegKeyOpened(cpu_context.ip, handle, path, root_key, sub_key)
+        )
+        logger.debug("Opening registry key: %s", path)
+
+    # Need to report disposition if RegCreateKeyEx*
+    if func_name.startswith("RegCreateKeyEx"):
+        disposition_ptr = func_args[-1]
+        if disposition_ptr:
+            cpu_context.memory.write_data(disposition_ptr, disposition, data_type=constants.DWORD)
+
+    return wc.ERROR_SUCCESS
+
+
+@builtin_func("RegDeleteKeyA")
+@builtin_func("RegDeleteKeyW")
+@builtin_func("RegDeleteKeyExA")
+@builtin_func("RegDeleteKeyExW")
+#typespec("int RegDeleteKeyA(HKEY hKey, char* lpSubKey);")
+#typespec("int RegDeleteKeyW(HKEY hKey, wchar* lpSubKey);")
+#typespec("int RegDeleteKeyExA(HKEY hKey, char* lpSubKey, REGSAM samDesired, DWORD Reserved);")
+#typespec("int RegDeleteKeyExW(HKEY hKey, wchar* lpSubKey, REGSAM samDesired, DWORD Reserved);")
+def reg_delete_key(cpu_context, func_name, func_args):
+    """
+    Deletes a subkey and its values.
+    """
+    wide = func_name.endswith("W")
+    root_key_handle, sub_key_ptr, *_ = func_args
+
+    root_key, sub_key = _get_reg_key(cpu_context, root_key_handle, sub_key_ptr, wide)
+
+    if not sub_key:
+        logger.warning("Sub key is null")
+        return
+
+    path = "\\".join([root_key, sub_key])
+    cpu_context.actions.add(actions.RegKeyDeleted(cpu_context.ip, root_key_handle, path))
+    logger.debug("Deleting registry key: %s", path)
+
+    return wc.ERROR_SUCCESS
+
+
+@builtin_func("RegDeleteKeyValueA")
+@builtin_func("RegDeleteKeyValueW")
+#typespec("int RegDeleteKeyValueA(HKEY hKey, char* lpSubKey, char* lpValueName);")
+#typespec("int RegDeleteKeyValueW(HKEY hKey, wchar* lpSubKey, wchar* lpValueName);")
+def reg_delete_key_value(cpu_context, func_name, func_args):
+    """
+    Removes the specified value from the specified registry key and subkey.
+    """
+    wide = func_name.endswith("W")
+    root_key_handle, sub_key_ptr, value_name_ptr = func_args
+
+    root_key, sub_key = _get_reg_key(cpu_context, root_key_handle, sub_key_ptr, wide)
+    value_name = cpu_context.memory.read_string(value_name_ptr, wide=wide)
+
+    path = "\\".join([root_key, sub_key or ""])
+    cpu_context.actions.add(
+        actions.RegKeyValueDeleted(cpu_context.ip, root_key_handle, path, value_name)
+    )
+    logger.debug("Deleting value %s from registry key %s", value_name, path)
+
+    return wc.ERROR_SUCCESS
+
+
+@builtin_func("RegDeleteValueA")
+@builtin_func("RegDeleteValueW")
+#typespec("int RegDeleteValueA(HKEY hKey, char* lpValueName);")
+#typespec("int RegDeleteValueW(HKEY hKey, wchar* lpValueName);")
+def reg_delete_value(cpu_context, func_name, func_args):
+    """
+    Removes a named value from the specified registry key.
+    """
+    wide = func_name.endswith("W")
+    root_key_handle, value_name_ptr = func_args
+
+    root_key, _ = _get_reg_key(cpu_context, root_key_handle, 0, wide)
+    value_name = cpu_context.memory.read_string(value_name_ptr, wide=wide)
+
+    path = root_key
+    cpu_context.actions.add(
+        actions.RegKeyValueDeleted(cpu_context.ip, root_key_handle, path, value_name)
+    )
+    logger.debug("Deleting value %s from registry key %s", value_name, path)
+
+    return wc.ERROR_SUCCESS
+
+
+@builtin_func("RegSetValueA")
+@builtin_func("RegSetValueW")
+@builtin_func("RegSetValueExA")
+@builtin_func("RegSetValueExW")
+#typespec("int RegSetValueA(HKEY hKey, char* lpSubKey, DWORD dwType, char* lpData, DWORD cbData);")
+#typespec("int RegSetValueA(HKEY hKey, wchar* lpSubKey, DWORD dwType, wchar* lpData, DWORD cbData);")
+#typespec("int RegSetValueExA(HKEY, char* lpValueName, DWORD Reserved, DWORD dwType, const BYTE *lpData, DWORD cbData);")
+#typespec("int RegSetValueExA(HKEY, wchar* lpValueName, DWORD Reserved, DWORD dwType, const BYTE *lpData, DWORD cbData);")
+def reg_set_value(cpu_context, func_name, func_args):
+    """
+    Sets the data for the default or unnamed value of a specified registry key.
+    """
+    wide = func_name.endswith("W")
+    root_key_handle, sub_key_ptr, *_, data_type, data_ptr, data_size = func_args
+
+    root_key, sub_key = _get_reg_key(cpu_context, root_key_handle, sub_key_ptr, wide)
+
+    path = "\\".join([root_key, sub_key or ""])
+    data_type = wc.RegistryDataType(data_type)
+
+    # Data is a null-terminated string
+    if data_type.name in ("REG_SZ", "REG_LINK", "REG_EXPAND_SZ"):
+        data = cpu_context.memory.read_string(data_ptr)
+
+    # Data is a sequence of null-terminated strings, terminated by an empty string (\0)
+    elif data_type.name == "REG_MULTI_SZ":
+        # Since the last string is empty, this terminates as a double null,
+        # which allows us to use WIDE_STRING.
+        data = cpu_context.memory.read_data(data_ptr, data_type=constants.WIDE_STRING)
+        data = [string.decode("utf8") for string in data.split(b"\x00") if string]
+
+    elif data_type.name == "REG_BINARY":
+        data = cpu_context.memory.read(data_ptr, data_size)
+
+    elif data_type.name == "REG_DWORD":
+        data = cpu_context.memory.read_data(data_ptr, data_type=constants.DWORD)
+
+    elif data_type.name == "REG_QWORD":
+        data = cpu_context.memory.read_data(data_ptr, data_type=constants.QWORD)
+
+    elif data_type.name == "REG_NONE":
+        data = None
+
+    else:
+        raise NotImplementedError(f"Unsupported data type: {data_type.name}")
+
+    cpu_context.actions.add(
+        actions.RegKeyValueSet(cpu_context.ip, root_key_handle, path, data_type.name, data)
+    )
+    logger.debug("Setting value %r to registry key %s", data, path)
+
+    return wc.ERROR_SUCCESS
+
+
+@builtin_func("OpenSCManagerA")
+@builtin_func("OpenSCManagerW")
+#typespec("HANDLE OpenSCManagerA(char* lpMachineName, char* lpDatabasename, DWORD dwDesiredAccess);")
+#typespec("HANDLE OpenSCManagerA(wchar* lpMachineName, wchar* lpDatabasename, DWORD dwDesiredAccess);")
+def open_sc_manager(cpu_context, func_name, func_args):
+    """
+    Establishes a connection to the service control manager on the specified computer
+    and opens the specified service control manager database.
+    """
+    return cpu_context.objects.alloc()
+
+
+@builtin_func("CreateServiceA")
+@builtin_func("CreateServiceW")
+#typespec("HANDLE CreateServiceA(HANDLE hSCManager, char* lpServiceName, char* lpDisplayName, DWORD dwDesiredAccess, DWORD dwServiceType, DWORD dwStartType, DWORD dwErrorControl, char* lpBinaryPathName, char* lpLoadOrderGroup, DWORD* lpdwTagId, char* lpDependencies, char* lpServiceStartName, char* lpPassword);")
+#typespec("HANDLE CreateServiceW(HANDLE hSCManager, wchar* lpServiceName, wchar* lpDisplayName, DWORD dwDesiredAccess, DWORD dwServiceType, DWORD dwStartType, DWORD dwErrorControl, wchar* lpBinaryPathName, wchar* lpLoadOrderGroup, DWORD* lpdwTagId, wchar* lpDependencies, wchar* lpServiceStartName, wchar* lpPassword);")
+def create_service(cpu_context, func_name, func_args):
+    """
+    Creates a service object and adds it to the specified service control manager database.
+    """
+    wide = func_name.endswith("W")
+    service_name_ptr = func_args[1]
+    display_name_ptr = func_args[2]
+    desired_access = func_args[3]
+    service_type = func_args[4]
+    start_type = func_args[5]
+    binary_path_ptr = func_args[7]
+
+    service_name = cpu_context.memory.read_string(service_name_ptr, wide=wide)
+    display_name = cpu_context.memory.read_string(display_name_ptr, wide=wide)
+    binary_path = cpu_context.memory.read_string(binary_path_ptr, wide=wide)
+    desired_access = wc.ServiceAccess(desired_access)
+    service_type = wc.ServiceType(service_type)
+    start_type = wc.ServiceStart(start_type)
+
+    # TODO: Determine if a new handle is always created.
+    handle = cpu_context.objects.get_or_alloc(objects.Service, name=service_name)
+
+    action = actions.ServiceCreated(
+        ip=cpu_context.ip,
+        handle=handle,
+        name=service_name,
+        access=desired_access,
+        service_type=service_type,
+        start_type=start_type,
+        display_name=display_name,
+        binary_path=binary_path
+    )
+    cpu_context.actions.add(action)
+    logger.debug("Created: %r", action)
+    return handle
+
+
+@builtin_func("OpenServiceA")
+@builtin_func("OpenServiceW")
+#typespec("SC_HANDLE OpenServiceA(SC_HANDLE hSCManager, LPCSTR lpServiceName, DWORD dwDesiredAccess);")
+#typespec("SC_HANDLE OpenServiceW(SC_HANDLE hSCManager, LPCWSTR lpServiceName, DWORD dwDesiredAccess);")
+def open_service(cpu_context, func_name, func_args):
+    """
+    Open a service
+    """
+    wide = func_name.endswith("W")
+    service_name_ptr = func_args[1]
+
+    service_name = cpu_context.memory.read_string(service_name_ptr, wide=wide)
+
+    # TODO: Determine if a new handle is always created.
+    handle = cpu_context.objects.get_or_alloc(objects.Service, name=service_name)
+
+    action = actions.ServiceOpened(
+        ip=cpu_context.ip,
+        handle=handle,
+        name=service_name
+    )
+    cpu_context.actions.add(action)
+    logger.debug("Opened: %r", action)
+    return handle
+
+
+@builtin_func("DeleteService")
+def delete_service(cpu_context, func_name, func_args):
+    """
+    BOOL DeleteService(SC_HANDLE hService);
+
+    Delete service by handle
+    """
+    handle = func_args[0]
+
+    if not handle:
+        logger.warning(f"Service with handle {hex(handle)} does not exist.")
+        
+    try:
+        action = actions.ServiceDeleted(
+            ip=cpu_context.ip,
+            handle=handle
+        )
+        cpu_context.actions.add(action)
+        logger.debug("Deleted: %r", action)
+    except ValueError as err:
+        logger.debug("DeleteService: %s", err)
+
+    return 1
+
+
+@builtin_func("ChangeServiceConfig2A")
+@builtin_func("ChangeServiceConfig2W")
+#typespec("BOOL ChangeServiceConfig2A(SC_HANDLE hService, DWORD dwInfoLevel, LPVOID lpInfo);")
+#typespec("BOOL ChangeServiceConfig2W(SC_HANDLE hService, DWORD dwInfoLevel, LPVOID lpInfo);")
+def change_service_config(cpu_context, func_name, func_args):
+    """
+    Changes service configuration.
+
+    NOTE: For now, only concerned with info level 1 for service description
+    """
+    wide = func_name.endswith("W")
+    ptr_type = constants.QWORD if cpu_context.bitness == 64 else constants.DWORD
+    handle = func_args[0]
+    info_level = func_args[1]
+    info_ptr = func_args[2]
+    ptr_value = cpu_context.read_data(info_ptr, data_type=ptr_type)
+
+    if not handle:
+        logger.warning(f"Service with handle {hex(handle)} does not exist.")
+
+    if info_level == 1:  # SERVICE_CONFIG_DESCRIPTION
+        service_description = cpu_context.memory.read_string(ptr_value, wide=wide)
+
+        action = actions.ServiceDescriptionChanged(
+            ip=cpu_context.ip,
+            handle=handle,
+            description=service_description
+        )
+        cpu_context.actions.add(action)
+        logger.debug(f"Description for service with handle {hex(handle)} changed: {service_description}")
+
+    return 1
