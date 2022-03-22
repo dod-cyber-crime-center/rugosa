@@ -1,6 +1,82 @@
 from rugosa.emulation.emulator import Emulator
 
 
+def test_function_arg(disassembler):
+    """Tests FunctionArg object."""
+    emulator = Emulator(disassembler)
+
+    xor_func_ea = 0x00401000
+    xor_func_call = 0x0040103A
+
+    # Basic tests.
+    context = emulator.context_at(xor_func_call)
+    args = context.function_args
+    assert len(args) == 2
+    assert args[0].name in ("a1", "param_1")
+    assert args[0].type == "byte *"
+    assert args[0].value == 0x0040C000  # pointer to b'Idmmn!Vnsme '
+    assert args[0].addr == context.sp + 0
+    assert args[1].name in ("a2", "param_2")
+    assert args[1].type in ("char", "byte", "int")
+    assert args[1].value == 1  # key
+    assert args[1].addr == context.sp + 4
+    # Test that we can change the values.
+    args[0].value = 0xffff
+    assert args[0].value == 0xffff
+    assert args[0].addr == context.sp + 0
+    assert context.memory.read(args[0].addr, 4) == b'\xff\xff\x00\x00'
+
+    # Test pulling in passed in arguments.
+    context = emulator.context_at(0x00401011)  # somewhere randomly in the xor function
+    args = context.passed_in_args
+    assert args[0].name in ("a1", "param_1")
+    assert args[0].type == "byte *"
+    assert args[0].value == 0
+    assert args[0].addr == context.sp + 0x08  # +8 to account for pushed in return address and ebp
+    assert args[1].name in ("a2", "param_2")
+    assert args[1].type in ("char", "byte", "int")
+    assert args[1].value == 0
+    assert args[1].addr == context.sp + 0x0C
+
+
+def test_function_arg_arm(disassembler):
+    """Tests FunctionArg object."""
+    emulator = Emulator(disassembler)
+
+    xor_func_ea = 0x104FC
+    xor_func_call = 0x1046C
+
+    # Basic tests.
+    context = emulator.context_at(xor_func_call)
+    args = context.function_args
+    assert len(args) == 2
+    assert args[0].name in ("result", "__block")
+    assert args[0].type in ("byte *", "char *")
+    assert args[0].value == context.registers.r0 == 0x21028  # pointer to b'Idmmn!Vnsme '
+    assert args[0].addr is None  # register arguments don't have an address.
+    assert args[1].name in ("a2", "__edflag")
+    assert args[1].type in ("char", "int")
+    assert args[1].value == context.registers.r1 == 1  # key
+    assert args[1].addr is None
+    # Test that we can change the values.
+    args[0].value = 0xffff
+    assert args[0].value == context.registers.r0 == 0xffff
+    assert args[0].addr is None
+
+    # Test pulling in passed in arguments.
+    context = emulator.context_at(0x1042C)  # somewhere randomly in the xor function
+    args = context.passed_in_args
+    assert args[0].name in ("result", "__block")
+    assert args[0].type in ("byte *", "char *")
+    assert args[0].value == context.registers.r0 == 0
+    assert args[0].addr is None
+    assert args[1].name in ("a2", "__edflag")
+    assert args[1].type in ("char", "int")
+    assert args[1].value == context.registers.r1 == 0
+    assert args[1].addr is None
+
+
+# Must be run last because it modifies the function signature.
 def test_function_signature(disassembler):
     """Tests FunctionSignature object."""
     emulator = Emulator(disassembler)
@@ -91,78 +167,3 @@ def test_function_signature(disassembler):
     # # Now see how signature was set to 3 integer arguments as expected.
     # func_sig = context.get_function_signature(0xFFF, force=True)
     # assert func_sig.declaration == 'int __cdecl no_name(INT, INT, INT);'
-
-
-def test_function_arg(disassembler):
-    """Tests FunctionArg object."""
-    emulator = Emulator(disassembler)
-
-    xor_func_ea = 0x00401000
-    xor_func_call = 0x0040103A
-
-    # Basic tests.
-    context = emulator.context_at(xor_func_call)
-    args = context.function_args
-    assert len(args) == 2
-    assert args[0].name in ("a1", "param_1")
-    assert args[0].type == "byte *"
-    assert args[0].value == 0x0040C000  # pointer to b'Idmmn!Vnsme '
-    assert args[0].addr == context.sp + 0
-    assert args[1].name in ("a2", "param_2")
-    assert args[1].type in ("char", "byte", "int")
-    assert args[1].value == 1  # key
-    assert args[1].addr == context.sp + 4
-    # Test that we can change the values.
-    args[0].value = 0xffff
-    assert args[0].value == 0xffff
-    assert args[0].addr == context.sp + 0
-    assert context.memory.read(args[0].addr, 4) == b'\xff\xff\x00\x00'
-
-    # Test pulling in passed in arguments.
-    context = emulator.context_at(0x00401011)  # somewhere randomly in the xor function
-    args = context.passed_in_args
-    assert args[0].name in ("a1", "param_1")
-    assert args[0].type == "byte *"
-    assert args[0].value == 0
-    assert args[0].addr == context.sp + 0x08  # +8 to account for pushed in return address and ebp
-    assert args[1].name in ("a2", "param_2")
-    assert args[1].type in ("char", "byte")
-    assert args[1].value == 0
-    assert args[1].addr == context.sp + 0x0C
-
-
-def test_function_arg_arm(disassembler):
-    """Tests FunctionArg object."""
-    emulator = Emulator(disassembler)
-
-    xor_func_ea = 0x104FC
-    xor_func_call = 0x1046C
-
-    # Basic tests.
-    context = emulator.context_at(xor_func_call)
-    args = context.function_args
-    assert len(args) == 2
-    assert args[0].name in ("result", "__block")
-    assert args[0].type in ("byte *", "char *")
-    assert args[0].value == context.registers.r0 == 0x21028  # pointer to b'Idmmn!Vnsme '
-    assert args[0].addr is None  # register arguments don't have an address.
-    assert args[1].name in ("a2", "__edflag")
-    assert args[1].type in ("char", "int")
-    assert args[1].value == context.registers.r1 == 1  # key
-    assert args[1].addr is None
-    # Test that we can change the values.
-    args[0].value = 0xffff
-    assert args[0].value == context.registers.r0 == 0xffff
-    assert args[0].addr is None
-
-    # Test pulling in passed in arguments.
-    context = emulator.context_at(0x1042C)  # somewhere randomly in the xor function
-    args = context.passed_in_args
-    assert args[0].name in ("result", "__block")
-    assert args[0].type in ("byte *", "char *")
-    assert args[0].value == context.registers.r0 == 0
-    assert args[0].addr is None
-    assert args[1].name in ("a2", "__edflag")
-    assert args[1].type in ("char", "int")
-    assert args[1].value == context.registers.r1 == 0
-    assert args[1].addr is None

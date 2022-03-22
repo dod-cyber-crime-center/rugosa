@@ -14,7 +14,7 @@ but can also be used in one-off scripting.
 pip install rugosa
 ```
 
-You will also need to setup a backend disssasembler by following [Dragodis's installation instructions](https://github.com/Defense-Cyber-Crime-Center/dragodis/docs/install.rst).
+You will also need to setup a backend disassembler by following [Dragodis's installation instructions](https://github.com/Defense-Cyber-Crime-Center/dragodis/blob/master/docs/install.rst).
 
 
 ## Utilities

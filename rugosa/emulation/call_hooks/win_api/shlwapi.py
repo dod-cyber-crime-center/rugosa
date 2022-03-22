@@ -28,3 +28,21 @@ def pathappend(cpu_context, func_name, func_args):
     full_path = ntpath.join(curr_path, more_path)
     cpu_context.memory.write_string(path_ptr, full_path, wide=wide)
     return True
+
+
+@builtin_func("PathAddBackslashA")
+@builtin_func("PathAddBackslashW")
+#typedef(LPWSTR PathAddBackslashW(LPWSTR pszPath));)
+def pathaddbackslash(cpu_context, func_name, func_args):
+    """
+    Appends a backslash to the path
+    """
+    wide = func_name.endswith(u"W")
+    path_ptr = func_args[0]
+
+    curr_path = cpu_context.memory.read_string(path_ptr, wide=wide)
+
+    full_path = curr_path + "\\"
+    cpu_context.memory.write_string(path_ptr, full_path, wide=wide)
+    return True
+
