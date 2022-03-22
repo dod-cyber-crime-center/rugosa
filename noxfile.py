@@ -29,7 +29,7 @@ def release_patch(session):
     session.run("mkdir", "-p", "dist", external=True)
     with open("./dist/updates.patch", "w") as out:
         session.run(
-            "git", "format-patch", "--stdout", "master",
+            "git", "format-patch", "--stdout", "main",
             external=True,
             stdout=out
         )
