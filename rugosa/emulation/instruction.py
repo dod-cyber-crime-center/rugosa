@@ -124,6 +124,8 @@ class Instruction:
                         stack_variable = func_obj.stack_frame[arg.name]
                         self._cpu_context.variables.add(addr, stack_variable)
                     except (KeyError, ValueError):
+                        # TODO: passed in arguments aren't found on the stack for IDA.
+                        #   This is due to IDA not adding argument names in function signature.
                         logger.warning(f"Failed to get stack information for function argument: {repr(arg)}")
                 else:
                     self._cpu_context.variables.add(addr)

@@ -6,6 +6,7 @@ from typing import Union, List, Iterable, Tuple, Optional
 
 import logging
 
+import dragodis
 from dragodis import Disassembler, ReferenceType, NotExistError, OperandType
 from dragodis.interface import Function
 
@@ -68,7 +69,11 @@ def iter_dynamic_functions(dis: Disassembler) -> Iterable[Tuple[int, str]]:
     except NotExistError:
         return
     for line in data_segment.lines:
-        value = line.value
+        try:
+            value = line.value
+        except NotImplementedError:
+            # TODO: For now, ignore dynamic functions within structs.
+            continue
         if isinstance(value, int):
             try:
                 dis.get_function(value)
@@ -77,10 +82,13 @@ def iter_dynamic_functions(dis: Disassembler) -> Iterable[Tuple[int, str]]:
                 continue
 
 
-def _match_name(func_names, name):
+def _match_name(func_names: Optional[List[str]], name: Optional[str]) -> bool:
+    if not func_names:
+        return True
+    if not name:
+        return False
     return (
-        not func_names
-        or name in func_names
+        name in func_names
         or any(func_name in name for func_name in func_names)
     )
 
@@ -122,8 +130,8 @@ def iter_calls_to(dis: Disassembler, addr: int) -> Iterable[int]:
     :param func_ea: Address of a function call.
     :return:
     """
-    instruction = dis.get_instruction(addr)
-    for ref in instruction.references_to:
+    line = dis.get_line(addr)
+    for ref in line.references_to:
         if ref.type == ReferenceType.code_call:
             yield ref.from_address
 

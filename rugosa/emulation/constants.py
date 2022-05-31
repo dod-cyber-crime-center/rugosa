@@ -1,4 +1,4 @@
-﻿"""Stores contants"""
+﻿"""Stores constants"""
 
 
 # Define some datatypes that can be used for input to get the operand value

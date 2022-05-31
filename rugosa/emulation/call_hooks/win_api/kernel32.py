@@ -4,10 +4,9 @@ Functions found in kernel32.dll
 Win32 base API
 """
 
-import pathlib
 import logging
 
-from . import constants as wc
+from . import win_constants as wc
 from ...call_hooks import builtin_func
 from ... import constants
 from ... import actions, objects
@@ -85,7 +84,7 @@ def get_module_file_name(cpu_context, func_name, func_args):
     # Since we shouldn't expose the user's real file path structure we'll use %INPUT_FILE_DIR% instead.
     # Must be truncated to fit in max_size filename_ptr (-1 for the terminator)
     disassembler = cpu_context.emulator.disassembler
-    file_path = "%INPUT_FILE_DIR%\\" + str(pathlib.PureWindowsPath(disassembler.input_path))
+    file_path = f"%INPUT_FILE_DIR%\\{disassembler.input_path.name}"
     file_path = file_path[:max_size - 1]
 
     logger.debug("Writing module path %s to 0x%08X", file_path, filename_ptr)
@@ -386,8 +385,8 @@ def move_file(cpu_context, func_name, func_args):
     Moves an existing file (or directory) to new location.
     """
     old_name_ptr, new_name_ptr, *_ = func_args
-    old_path = cpu_context.read_data(old_name_ptr).decode("utf8")
-    new_path = cpu_context.read_data(new_name_ptr).decode("utf8")
+    old_path = cpu_context.memory.read_data(old_name_ptr).decode("utf8")
+    new_path = cpu_context.memory.read_data(new_name_ptr).decode("utf8")
     logger.debug("Moving file: %s -> %s", old_path, new_path)
 
     handle = cpu_context.objects.get_or_alloc(objects.File, path=old_path)

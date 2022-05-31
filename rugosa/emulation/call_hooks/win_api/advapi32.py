@@ -6,7 +6,7 @@ Security functions for manipulating the Windows Registry.
 
 import logging
 
-from . import constants as wc
+from . import win_constants as wc
 from ... import actions, utils, constants, objects
 from ...call_hooks import builtin_func
 
@@ -350,7 +350,7 @@ def change_service_config(cpu_context, func_name, func_args):
     handle = func_args[0]
     info_level = func_args[1]
     info_ptr = func_args[2]
-    ptr_value = cpu_context.read_data(info_ptr, data_type=ptr_type)
+    ptr_value = cpu_context.memory.read_data(info_ptr, data_type=ptr_type)
 
     if not handle:
         logger.warning(f"Service with handle {hex(handle)} does not exist.")

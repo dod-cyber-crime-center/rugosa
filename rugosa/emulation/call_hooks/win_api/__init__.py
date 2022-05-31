@@ -1,6 +1,2 @@
 
-from .kernel32 import *
-from .advapi32 import *
-from .shell32 import *
-from .shlwapi import *
-from .ws2_32 import *
+from . import advapi32, kernel32, shell32, shlwapi, ws2_32

@@ -135,7 +135,8 @@ def test_function_signature(disassembler):
         for context in emulator.iter_context_at(ea):
             args = context.get_function_arg_values(num_args=2)
             assert len(args) == 2
-            results.append(args)
+            # Casting is necessary if emulator is teleported.
+            results.append(list(args))
     assert results == [
         [4243456, 1],
         [4243472, 2],

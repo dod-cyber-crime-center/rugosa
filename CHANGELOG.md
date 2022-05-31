@@ -1,6 +1,16 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Changed
+- IDA: Greatly improved emulation performance by "teleporting" the `Emulator` instance into the IDA interpreter.
+
+### Fixed
+- *Emulation*
+  - Fixed issues with windows constants in call hooks.
+  - Fixed bugs in opcode calls.
+
 
 ## [0.1.1] - 2022-03-23
 

@@ -92,6 +92,9 @@ class Register:
     def names(self):
         return list(self._masks.keys())
 
+    def clear(self):
+        self.__dict__["_value"] = 0
+
 
 class RegisterMap:
     """
@@ -165,4 +168,4 @@ class RegisterMap:
             register = self._reg_map[reg_name.lower()]
         except KeyError:
             raise ValueError(f"Invalid register: {reg_name}")
-        register._value = 0
+        register.clear()

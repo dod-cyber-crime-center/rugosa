@@ -16,6 +16,9 @@ from copy import deepcopy
 from typing import Optional, Tuple, List, Iterable, Callable
 
 import dragodis
+from dragodis.utils import in_ida
+from rugosa.emulation.functions import FunctionArgument
+
 from . import call_hooks
 from .x86_64 import x86_64ProcessorContext
 from .ARM import ARMProcessorContext
@@ -36,7 +39,21 @@ class Emulator:
         - Store global emulation options.
     """
 
-    def __init__(self, disassembler: dragodis.Disassembler, max_instructions=10000, branch_tracking=True):
+    def __new__(cls, disassembler: dragodis.Disassembler, *args, teleport=True, **kwargs):
+        # If we are using IDA, teleport the emulator instance into the IDA interpreter.
+        # This helps to greatly improve performance!
+        if teleport and disassembler.name.lower() == "ida" and not in_ida():
+            @disassembler.teleport
+            def _Emulator(dis, *args, **kwargs):
+                import rugosa
+                emulator = rugosa.Emulator(dis, *args, **kwargs)
+                emulator.teleported = True
+                return emulator
+            return _Emulator(disassembler, *args, **kwargs)
+        else:
+            return super().__new__(cls)
+
+    def __init__(self, disassembler: dragodis.Disassembler, max_instructions=10000, branch_tracking=True, teleport=True):
         """
         Initialize an Emulator instance
 
@@ -51,6 +68,10 @@ class Emulator:
             This can be helpful to ensure the rest of the emulation is done correctly, however
             this will cause emulation to run slower.
             So this option allows you to turn it off when the feature is not necessary.
+        :param teleport:
+            Whether to allow the emulator instance to be teleported into the underlying disassembler.
+            This is done for performance reasons, however in some cases if you are doing some deeper customizations
+            to the emulator you might run into problems. Therefore, we have the option to turn it off.
         """
         self.disassembler = disassembler
         # Determine the appropriate class to use for generated contexts based on arch name.
@@ -68,6 +89,7 @@ class Emulator:
         self.max_instructions = max_instructions
         self.branch_tracking = branch_tracking
         self.disabled_rep = False
+        self.teleported = False
 
     def disable(self, name: str):
         """
@@ -512,7 +534,7 @@ class Emulator:
 
     def iter_function_args(
             self, ea, *, depth=0, exhaustive=True, num_args=None, follow_loops=False, init_context=None
-    ) -> Iterable[Tuple[ProcessorContext, List[int]]]:
+    ) -> Iterable[Tuple[ProcessorContext, List[FunctionArgument]]]:
         """
         Given the EA of a function call, attempt to determine the number of arguments passed to the function and
         return those values to the caller.  Additionally, give back the context as well since it may be useful.
@@ -541,7 +563,7 @@ class Emulator:
 
     def get_function_args(
             self, ea, *, depth=0, num_args=None, follow_loops=False, init_context=None
-    ) -> Optional[Tuple[ProcessorContext, List[int]]]:
+    ) -> Optional[Tuple[ProcessorContext, List[FunctionArgument]]]:
         """
         Simply calls iter_function_args with the provided ea and returns the first set of arguments.
 
@@ -620,8 +642,8 @@ class Emulator:
                     logger.debug(f'Setting argument {func_arg.name} = {repr(arg)}')
                     func_arg.value = arg
                 elif isinstance(arg, bytes):
-                    ptr = context.mem_alloc(len(arg))
-                    context.mem_write(ptr, arg)
+                    ptr = context.memory.alloc(len(arg))
+                    context.memory.write(ptr, arg)
                     logger.debug(f'Setting argument {func_arg.name} = {hex(ptr)} ({repr(arg)})')
                     func_arg.value = ptr
                 else:
@@ -630,7 +652,7 @@ class Emulator:
             context.execute(func_obj.start, end=func_obj.end, max_instructions=self.max_instructions)
 
             if return_type is not None or return_size is not None:
-                result = context.read_data(context.ret, size=return_size, data_type=return_type)
+                result = context.memory.read_data(context.ret, size=return_size, data_type=return_type)
             else:
                 result = context.ret
 

@@ -4,7 +4,8 @@ from rugosa.emulation.flowchart import iter_paths
 
 
 def test_flowchart(disassembler):
-    emulator = Emulator(disassembler)
+    # NOTE: Need to turn off teleportation here due to direct interaction with the path nodes.
+    emulator = Emulator(disassembler, teleport=False)
 
     # Test on simple 1 block function.
     flowchart = disassembler.get_flowchart(0x004011AA)

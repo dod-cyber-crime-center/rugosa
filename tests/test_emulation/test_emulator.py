@@ -33,8 +33,6 @@ def test_func_emulate(disassembler):
     assert context.memory.read_data(ptr) == b"cybertruck"
 
 
-# @pytest.mark.in_ida_x86
-# @pytest.mark.in_ida_arm
 def test_function_hooking(disassembler):
     """Tests function hooking mechanism."""
     emulator = Emulator(disassembler)
@@ -92,14 +90,16 @@ def test_function_hooking(disassembler):
         args.append(func_args)
     emulator.hook_call(xor_func_ea, xor_hook)
     context = emulator.context_at(end_ea)
+    # Casting is necessary if emulator is teleported.
+    args = [list(func_args) for func_args in args]
     assert args == expected_args
-    assert [_args for _, _args in context.get_call_history(xor_func_ea)] == expected_args
+    assert [list(_args) for _, _args in context.get_call_history(xor_func_ea)] == expected_args
 
     # Now test with the function emulated to see our data getting decrypted.
     emulator.reset_hooks()
     emulator.emulate_call(xor_func_ea)
     context = emulator.context_at(end_ea)
-    assert [_args for _, _args in context.get_call_history(xor_func_ea)] == expected_args
+    assert [list(_args) for _, _args in context.get_call_history(xor_func_ea)] == expected_args
     strings = [(context.memory.read_data(args[0]), args[1]) for _, args in context.get_call_history(xor_func_ea)]
     assert strings == [
         (b'Hello World!', 0x01),

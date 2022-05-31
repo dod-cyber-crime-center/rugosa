@@ -5,7 +5,7 @@ Interface for interesting actions.
 from dataclasses import dataclass
 import logging
 from typing import Union, List, Optional, Iterable
-from .call_hooks.win_api import constants as wc
+from .call_hooks.win_api import win_constants as wc
 
 logger = logging.getLogger(__name__)
 

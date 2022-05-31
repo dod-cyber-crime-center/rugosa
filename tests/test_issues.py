@@ -23,14 +23,14 @@ def test_issue_7(disassembler):
 #   - Bring over or import the naming thing for disassembler.
 def test_function_case_senstivity_all(disassembler):
     """Tests issue with case sensitivity when hooking functions."""
-    from rugosa.emulation.call_hooks import stdlib
-
     emulator = Emulator(disassembler)
 
+    # NOTE: Can't check equality of the functions directly since emulator could be teleported.
+
     # Test with known builtin func
-    assert emulator.get_call_hook("lstrcpya") == stdlib.strcpy
-    assert emulator.get_call_hook("lStrcpyA") == stdlib.strcpy
-    assert emulator.get_call_hook("lstrcpyA") == stdlib.strcpy
+    assert emulator.get_call_hook("lstrcpya").__name__ == "strcpy"
+    assert emulator.get_call_hook("lStrcpyA").__name__ == "strcpy"
+    assert emulator.get_call_hook("lstrcpyA").__name__ == "strcpy"
 
     # Test user defined
     def dummy(ctx, func_name, func_args):
@@ -40,6 +40,6 @@ def test_function_case_senstivity_all(disassembler):
     assert emulator.get_call_hook("SUPERfunc") is None
     assert emulator.get_call_hook("superfunc") is None
     emulator.hook_call("SuperFunc", dummy)
-    assert emulator.get_call_hook("SuperFunc") == dummy
-    assert emulator.get_call_hook("SUPERfunc") == dummy
-    assert emulator.get_call_hook("superfunc") == dummy
+    assert emulator.get_call_hook("SuperFunc").__name__ == "dummy"
+    assert emulator.get_call_hook("SUPERfunc").__name__ == "dummy"
+    assert emulator.get_call_hook("superfunc").__name__ == "dummy"

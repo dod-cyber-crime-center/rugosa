@@ -391,7 +391,7 @@ class ProcessorContext:
 
         :return: FunctionSignature object or None if not applicable
 
-        :raises RuntimeError: If a function signature could not be created from given ea.
+        :raises NotExistError: If a function signature could not be created from given ea.
         :raises ValueError: If num_args is negative
         """
         # If func_ea is not given, assume we are using the first operand from a call instruction.

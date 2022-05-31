@@ -66,7 +66,8 @@ def test_register_list_operands_arm_ida(disassembler):
     ctx = emulator.new_context()
     insn = ctx.get_instruction(0x106A8)
     assert insn.operands[0].text == "{R4-R10,PC}"
-    assert insn.operands[0].register_list == ["r4", "r5", "r6", "r7", "r8", "r9", "r10", "pc"]
+    # Casting is necessary if emulator is teleported.
+    assert list(insn.operands[0].register_list) == ["r4", "r5", "r6", "r7", "r8", "r9", "r10", "pc"]
     ctx.registers.r4 = 4
     ctx.registers.r5 = 5
     ctx.registers.r6 = 6
@@ -75,9 +76,9 @@ def test_register_list_operands_arm_ida(disassembler):
     ctx.registers.r9 = 9
     ctx.registers.r10 = 10
     ctx.registers.pc = 1024
-    assert insn.operands[0].value == [4, 5, 6, 7, 8, 9, 10, 1024]
+    assert list(insn.operands[0].value) == [4, 5, 6, 7, 8, 9, 10, 1024]
     insn.operands[0].value = [10, 20, 30, 40, 50, 60, 70, 80]
-    assert insn.operands[0].value == [10, 20, 30, 40, 50, 60, 70, 80]
+    assert list(insn.operands[0].value) == [10, 20, 30, 40, 50, 60, 70, 80]
     assert ctx.registers.r4 == 10
     assert ctx.registers.r5 == 20
     assert ctx.registers.r6 == 30

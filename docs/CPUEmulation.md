@@ -426,12 +426,12 @@ with dragodis.open_program(r"C:\input.exe") as dis:
        # Base64 decode passed in string and then set it to destination pointer.
        src_ptr, src_size, dst_ptr = func_args
        
-       src = context.mem_read(src_ptr, src_size)
+       src = context.memory.read(src_ptr, src_size)
        try:
            dst = base64.b64decode(src)
        except TypeError:
            return -1  # emulate error result
-       context.mem_write(dst_ptr, dst)
+       context.memory.write(dst_ptr, dst)
            
        # report string for our own purposes
        decoded_strings.append(dst)

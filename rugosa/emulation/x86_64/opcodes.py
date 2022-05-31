@@ -21,6 +21,8 @@ WARNING:
 
 import logging
 
+import dragodis
+
 from .. import utils
 from ..cpu_context import ProcessorContext
 from ..instruction import Instruction
@@ -184,13 +186,19 @@ def CALL(cpu_context: ProcessorContext, instruction: Instruction):
     operands = instruction.operands
     # Function pointer can be a memory reference or immediate.
     func_ea = operands[0].addr or operands[0].value
-    # Using signature in order to get demangled name.
-    func_name = cpu_context.emulator.disassembler.get_function_signature(func_ea).name
 
-    logger.debug("call %s", func_name or f"0x{func_ea:X}")
+    logger.debug("call %s", hex(func_ea))
 
     # If a valid function pointer, collect call history and emulate effects.
     if operands[0].is_func_ptr:
+        # Using signature in order to get demangled name.
+        try:
+            func_name = cpu_context.emulator.disassembler.get_function_signature(func_ea).name
+            logger.debug("call %s", func_name)
+        except dragodis.NotExistError:
+            logger.warning("Invalid function signature at %s", hex(func_ea))
+            return
+
         # Push return address on the stack and set the ip to the function's start address.
         cpu_context.sp -= cpu_context.byteness
         ret_addr = instruction.next_ip
@@ -201,6 +209,8 @@ def CALL(cpu_context: ProcessorContext, instruction: Instruction):
         # Pop return address from the stack, set ip to return address.
         cpu_context.sp += cpu_context.byteness
         cpu_context.ip = ret_addr
+    else:
+        logger.debug("Invalid function")
 
     if cpu_context.bitness == 64:
         return
@@ -1168,7 +1178,7 @@ def movs(cpu_context: ProcessorContext, instruction: Instruction):
         src_ptr = cpu_context.registers[src]
         dst_ptr = cpu_context.registers[dst]
         logger.debug("0x%X -> 0x%X", src_ptr, dst_ptr)
-        cpu_context.mem_copy(src_ptr, dst_ptr, size)
+        cpu_context.memory.copy(src_ptr, dst_ptr, size)
 
         # update ESI/EDI registers
         if cpu_context.registers.df:
@@ -1624,7 +1634,7 @@ def scas(cpu_context: ProcessorContext, instruction: Instruction):
 
     # Compare value in eax with value at memory location stored in edi.
     opvalue1 = cpu_context.registers[eax_reg]
-    data = cpu_context.memory.read(cpu_context.registers[edi_reg])
+    data = cpu_context.memory.read(cpu_context.registers[edi_reg], width)
     opvalue2 = int.from_bytes(data, cpu_context.byteorder)
     result = opvalue1 - opvalue2
     logger.debug("Scan compare 0x%X - 0x%X = 0x%X", opvalue1, opvalue2, result)

@@ -26,6 +26,8 @@ class x86_64Operand(Operand):
         :return int: calculated value
         """
         addr = self.base + self.index * self.scale + self.offset
+        if addr < 0:
+            addr = utils.unsigned(addr, self._cpu_context.byteness)
         logger.debug(
             "Calculating operand: %s -> 0x%X + 0x%X*0x%X %s 0x%X = 0x%X" % (
                 self.text,
@@ -37,9 +39,6 @@ class x86_64Operand(Operand):
                 addr
             )
         )
-        if addr < 0:
-            logger.debug("Address is negative, resorting to address of 0.")
-            addr = 0
 
         return addr
 

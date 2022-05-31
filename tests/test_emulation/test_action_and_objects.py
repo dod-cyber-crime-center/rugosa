@@ -21,7 +21,8 @@ def test_objects_and_actions(disassembler):
     ctx.actions.add(actions.FileWritten(ip=offset-1, handle=handle, data=b"second bytes"))
     assert ctx.objects
     assert len(ctx.objects) == 1
-    assert ctx.objects.handles == [handle]
+    # Casting is necessary if emulator is teleported.
+    assert list(ctx.objects.handles) == [handle]
     file_obj = ctx.objects[handle]
     assert file_obj
     assert file_obj.handle == handle
@@ -30,7 +31,7 @@ def test_objects_and_actions(disassembler):
     assert file_obj.mode == "w"
     assert file_obj.data == b"first bytes\nsecond bytes"
     assert file_obj.closed is False
-    assert file_obj.references == [offset-3, offset-2, offset-1]
+    assert list(file_obj.references) == [offset-3, offset-2, offset-1]
 
     # Now test if we can detect when the right file is closed.
     # NOTE: We have to regrab the object for changes to take affect.
@@ -40,4 +41,4 @@ def test_objects_and_actions(disassembler):
     assert ctx.objects[handle].closed is False
     ctx.actions.add(actions.FileClosed(ip=offset, handle=handle))
     assert ctx.objects[handle].closed is True
-    assert ctx.objects.handles == [handle, sec_handle]
+    assert list(ctx.objects.handles) == [handle, sec_handle]

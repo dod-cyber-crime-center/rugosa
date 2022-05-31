@@ -326,6 +326,20 @@ class Service(Object):
                 return action.name
 
     @property
+    def display_name(self) -> Optional[str]:
+        """The display name of the service"""
+        for action in reversed(self.actions):
+            if isinstance(action, ServiceCreated):
+                return action.display_name
+
+    @property
+    def binary_path(self) -> Optional[str]:
+        """The binary path of the service."""
+        for action in reversed(self.actions):
+            if isinstance(action, ServiceCreated):
+                return action.binary_path
+
+    @property
     def description(self) -> Optional[str]:
         """The description of the service"""
         for action in reversed(self.actions):

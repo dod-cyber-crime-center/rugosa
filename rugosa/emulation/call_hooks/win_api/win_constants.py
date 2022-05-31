@@ -1,4 +1,6 @@
-# Constants that will be used throughout the Windows API functions
+"""
+Constants that will be used throughout the Windows API functions
+"""
 
 from enum import IntEnum, IntFlag
 

@@ -21,7 +21,7 @@ def inet_addr(cpu_context, func_name, func_args):
     Convert the provided inet_address to an IPv4 address
     """
     src = func_args[0]
-    addr_str = cpu_context.read_data(src, data_type=constants.STRING)
+    addr_str = cpu_context.memory.read_data(src, data_type=constants.STRING)
     if not addr_str:
         return 0
     try:
