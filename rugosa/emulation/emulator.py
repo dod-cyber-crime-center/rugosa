@@ -1,4 +1,4 @@
-"""
+r"""
 Main interface for emulating functions.
 
 e.g.
