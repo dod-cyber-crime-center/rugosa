@@ -214,13 +214,13 @@ def get_computer_name(cpu_context, func_name, func_args):
     This name is established at system startup, when the system reads it
     from the registry.
 
-    Using the computer name "KORDESII_COMP" for this emulator.
+    Using the computer name "RUGOSA_COMP" for this emulator.
     TODO: Should we allow user to provide their own computer name when setting up Emulator?
     """
     wide = func_name.endswith("W")
     buffer_ptr, size_ptr = func_args
 
-    computer_name = "KORDESII_COMP"
+    computer_name = "RUGOSA_COMP"
     logger.debug("Writing computer name %s to 0x%08X", computer_name, buffer_ptr)
     cpu_context.memory.write_string(buffer_ptr, computer_name, wide=wide)
     cpu_context.memory.write_data(size_ptr, len(computer_name), data_type=constants.DWORD)
@@ -236,13 +236,13 @@ def get_user_name(cpu_context, func_name, func_args):
     """
     Retrieves the name of the user associated with the current thread.
 
-    Using the user name "kordesii" for this emulator.
+    Using the user name "rugosa" for this emulator.
     TODO: Should we allow user to provide their own user name when setting up Emulator?
     """
     wide = func_name.endswith("W")
     buffer_ptr, size_ptr = func_args
 
-    user_name = "kordesii"
+    user_name = "rugosa"
     logger.debug("Writing user name %s to 0x%08X", user_name, buffer_ptr)
     cpu_context.memory.write_string(buffer_ptr, user_name, wide=wide)
     cpu_context.memory.write_data(size_ptr, len(user_name), data_type=constants.DWORD)

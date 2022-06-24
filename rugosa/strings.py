@@ -1,13 +1,13 @@
 """
 Utilities for working with encoded/encrypted strings.
 """
-import copy
-import functools
+from __future__ import annotations
 import logging
 import re
 import sys
-from typing import List, Iterable, Tuple, Union, Optional
+from typing import Iterable, Tuple, Union
 
+import dragodis
 
 logger = logging.getLogger(__name__)
 
@@ -101,624 +101,185 @@ def find_string_data(data: bytes) -> Iterable[Tuple[int, bytes, str]]:
             yield string_offset, buffer, "utf-8"
 
 
-# TODO: EncodedString (and EncodedStackString) needs to be completely refactored after we determine
-#   it's need... if it's needed.
+def get_terminated_bytes(dis: dragodis.Disassembler, addr: int, unit_width: int = 1) -> bytes:
+    """
+    Extracts null terminated bytes from given address.
 
-#
-# @functools.total_ordering
-# class EncodedString:
-#     """
-#     Object to hold data about an encoded/encrypted string.
-#     """
-#
-#     _MAX_COMMENT_LENGTH = 130
-#     _MAX_NAME_LENGTH = 30
-#
-#     # TODO: Since we must have either a string_location or encoded_data should we change
-#     #   the first parameter to be something like "encoded_data_or_location" and then
-#     #   check which it is by type?
-#     def __init__(
-#         self,
-#         dis: dragodis.Disassembler,
-#         string_location,
-#         string_reference=None,
-#         size=None,
-#         offset=None,
-#         key=None,
-#         encoded_data=None,
-#         code_page=None,
-#         dest=None,
-#     ):
-#         """
-#         Instantiate an EncodedString.
-#
-#         :param string_location:
-#             Data segment pointer for static strings or stack pointer for stack strings.
-#         :param string_reference:
-#             The location the string is referenced from.
-#             This is required to pull the stack frame when string_location is a stack pointer.
-#         :param size: Size of the encoded data.
-#             When set encoded_data is populated using this and string_location.
-#         :param offset: Used when there is an offset based accessing scheme.
-#         :param key: Used when there is a key that can vary by string.
-#         :param encoded_data: encoded/encrypted data, if not provided data will be retrieved from IDA.
-#         :param code_page: known encoding page used to decode data to unicode (after data is decrypted)
-#             (code page is dynamically determined if not provided)
-#         :param dest: Location of decrypted data (if different from string_location)
-#
-#         :raises ValueError: If both encoded_data and string_location is not provided.
-#         """
-#         self._dis = dis
-#         self.string_location = string_location
-#         self.string_reference = string_reference
-#         self.offset = offset
-#         self.key = key
-#         self.decoded_data: Union[None, str, bytes] = None
-#         self.code_page = None
-#         self.dest = dest
-#         self._xrefs_to = None
-#
-#         # Pull encoded_data from disassembler if not provided.
-#         if encoded_data is None:
-#             if string_location is None:
-#                 raise ValueError(
-#                     "encoded_data must be provided if string_location is None"
-#                 )
-#             encoded_data = (
-#                 self._get_bytes(string_location, size=size, code_page=code_page) or b""
-#             )
-#
-#         if not isinstance(encoded_data, (bytes, list)):
-#             raise TypeError(
-#                 "encoded_data must be type 'bytes', not '{!r}'".format(
-#                     type(encoded_data)
-#                 )
-#             )
-#
-#         self.encoded_data = encoded_data
-#
-#     # TODO: Perhaps remove the factory() method all together and havel emulation create the EncryptedString object for you.
-#     # @classmethod
-#     # def factory(
-#     #     cls,
-#     #     dis: dragodis.Disassembler,
-#     #     string_location,
-#     #     string_reference,
-#     #     size=None,
-#     #     offset=None,
-#     #     key=None,
-#     #     encoded_data=None,
-#     #     code_page=None,
-#     #     dest=None,
-#     # ):
-#     #     """
-#     #     Factory function to generate an EncodedString or EncodedStackString based on type.
-#     #
-#     #     :param string_location:
-#     #         Data segment pointer for static strings or stack pointer for stack strings.
-#     #     :param string_reference:
-#     #         The location the string is referenced from.
-#     #         This is required to pull the stack frame when string_location is a stack pointer.
-#     #     :param size: Size of the encoded data.
-#     #         When set encoded_data is populated using this and string_location.
-#     #     :param offset: Used when there is an offset based accessing scheme.
-#     #     :param key: Used when there is a key that can vary by string.
-#     #     :param encoded_data: encoded/encrypted data, if not provided data will be retrieved from IDA.
-#     #     :param code_page: known encoding page used to decode data to unicode (after data is decrypted)
-#     #         (code page is dynamically determined if not provided)
-#     #     :param dest: Location of decrypted data (if different from string_location)
-#     #     """
-#     #     try:
-#     #         line = dis.get_line(string_location)
-#     #         if line.is_loaded:
-#     #             return EncodedString(
-#     #                 dis,
-#     #                 string_location,
-#     #                 string_reference,
-#     #                 size=size,
-#     #                 offset=offset,
-#     #                 key=key,
-#     #                 encoded_data=encoded_data,
-#     #                 code_page=code_page,
-#     #                 dest=dest,
-#     #             )
-#     #     except dragodis.NotExistError:
-#     #         pass
-#     #
-#     #     # otherwise assume string_location is a pointer within the stack
-#     #     # (using function_tracing's CPU emulator) and create an EncodedStackString object.
-#     #     stack = idc.get_func_attr(string_reference, idc.FUNCATTR_FRAME)
-#     #     # FIXME: This method isn't always super accurate because... IDA
-#     #     stack_offset = (
-#     #         string_location
-#     #         + function_tracing.RSP_OFFSET
-#     #         + idc.get_func_attr(string_reference, idc.FUNCATTR_FRSIZE)
-#     #         - function_tracing.STACK_BASE
-#     #     )
-#     #     if stack_offset < 0:
-#     #         logger.warning(
-#     #             "Ignoring negative stack offset {:#x} pulled from 0x{:X}".format(
-#     #                 stack_offset, string_location
-#     #             )
-#     #         )
-#     #         stack_offset = None
-#     #
-#     #     return EncodedStackString(
-#     #         encoded_data,
-#     #         frame_id=stack,
-#     #         stack_offset=stack_offset,
-#     #         string_reference=string_reference,
-#     #         offset=offset,
-#     #         key=key,
-#     #         code_page=code_page,
-#     #         dest=dest,
-#     #     )
-#
-#     def _compare_key(self):
-#         # Sort by where it was found then where it is referenced
-#         return (
-#             self.string_location or -1,
-#             self.string_reference or -1,
-#             self.decoded_data or b"",
-#         )
-#
-#     def __hash__(self):
-#         return hash(self._compare_key())
-#
-#     def __eq__(self, other):
-#         return self._compare_key() == other._compare_key()
-#
-#     def __lt__(self, other):
-#         return self._compare_key() < other._compare_key()
-#
-#     def report(self):
-#         """
-#         Generates a text report of the EncodedString object.
-#
-#         :return str: Unicode string containing text report.
-#         """
-#         # We have to return repr as a unicode because of the decoded string.
-#         text = u""
-#         if self.string_location is not None:
-#             text += u"EA:  0x{:08X}\n".format(self.string_location)
-#         if self.string_reference is not None:
-#             text += u"Ref: 0x{:08X}\n".format(self.string_reference)
-#         if self.dest is not None:
-#             text += u"Dest: 0x{:08X}\n".format(self.dest)
-#         if self.offset is not None:
-#             text += u"Offset: 0x{:08X}\n".format(self.offset)
-#         if self.encoded_data:
-#             text += u"Raw Enc: {!r}\n".format(self.encoded_data)
-#         if self.decoded_data:
-#             text += u"Raw Dec: {!r}\n".format(self.decoded_data)
-#             dec_string = str(self)
-#             if self.code_page:
-#                 text += u"Detected Code Page: {}\n".format(self.code_page)
-#             text += u"Dec: {}".format(dec_string)
-#         return text
-#
-#     def __bytes__(self):
-#         return self.decoded_data
-#
-#     def __str__(self):
-#         return self._decode_unknown_charset()
-#
-#     def __unicode__(self):
-#         return self._decode_unknown_charset()
-#
-#     def __repr__(self):
-#         encoded_data = self.encoded_data or b""
-#         if len(encoded_data) > 30:
-#             encoded_data = encoded_data[:30] + b" ..."
-#         return "<{!r} at 0x{:08x}>".format(
-#             encoded_data, self.string_location or self.string_reference
-#         )
-#
-#     def __len__(self):
-#         return len(self.encoded_data)
-#
-#     @property
-#     def xrefs_to(self) -> List[int]:
-#         if self._xrefs_to is None:
-#             self._xrefs_to = [ref.from_address for ref in self._dis.references_to(self.string_location)]
-#         return self._xrefs_to
-#
-#     @property
-#     def display_name(self):
-#         """Returns an IDA friendly, printable name for the decoded string."""
-#         return str(self).encode(DISPLAY_CODE, "replace").decode(DISPLAY_CODE)
-#
-#     def rename(self, name=None):
-#         """
-#         Renames (and comments) the string variable in IDA.
-#
-#         :param str name: New name to given encoded string. (defaults to decoded_string)
-#         """
-#         name = name or self.display_name
-#         if not name:
-#             logger.warning(
-#                 "Unable to rename encoded string due to no decoded string: {!r}".format(
-#                     self
-#                 )
-#             )
-#             return
-#
-#         # Add comment
-#         comment = '"{}"'.format(name[: self._MAX_COMMENT_LENGTH])
-#         if len(name) > self._MAX_COMMENT_LENGTH:
-#             comment += " (truncated)"
-#         if self.string_location is not None:
-#             self._dis.set_comment(self.string_location, comment, dragodis.CommentType.repeatable)
-#         if self.string_reference is not None:
-#             self._dis.set_comment(self.string_reference, comment, dragodis.CommentType.repeatable)
-#         if self.dest is not None:
-#             self._dis.set_comment(self.dest, comment, dragodis.CommentType.repeatable)
-#
-#         # Set variable name
-#         # To follow IDA conventions, the decoded string itself will be prefixed with 'a'
-#         # If a destination was provided, don't include any prefix, because this
-#         # is usually for resolved API functions.
-#         name = name[:self._MAX_NAME_LENGTH]
-#         if self.string_location is not None:
-#             self._dis.set_name(self.string_location, "a" + name)
-#         if self.dest is not None:
-#             # TODO
-#             # # IDA will sometimes type API function pointers based on code analysis, and it's generic.  Unsetting the
-#             # # type before the rename will cause IDA to properly type API functions if the type is known from the
-#             # # loaded type libraries.
-#             # idc.SetType(self.dest, '')
-#             self._dis.set_name(self.dest, name)
-#
-#     def patch(self, fill_char=b'\x00', define=True):
-#         """
-#         Patches the original encoded string with the decoded string.
-#
-#         :param str fill_char:
-#             Character to use to fill left over space if decoded data
-#             is shorter than its encoded data.
-#             Set to None leaving the original data.
-#         :param bool define: Whether to define the string after patching.
-#         """
-#         if not self.decoded_data or self.string_location is None:
-#             return
-#         decoded_data = self.decoded_data
-#         if fill_char:
-#             decoded_data += fill_char * (len(self.encoded_data) - len(decoded_data))
-#         try:
-#             line = self._dis.get_line(self.start_ea)
-#             line.data = decoded_data
-#             if define:
-#                 self.define()
-#         except TypeError:
-#             logger.debug(
-#                 "String type for decoded string from location 0x{:08x}.".format(
-#                     self.start_ea
-#                 )
-#             )
-#         finally:
-#             return self
-#
-#     def define(self):
-#         """
-#         Defines the string in the disassembler database.
-#         """
-#         if not self.decoded_data:
-#             return
-#         try:
-#             line = self._dis.get_line(self.start_ea)
-#             if isinstance(self.decoded_data, str):
-#                 string_type = dragodis.LineType.string16
-#             else:
-#                 string_type = dragodis.LineType.string
-#             line.type = string_type
-#             # TODO: We may need to be able to allow setting the type for a range of bytes
-#             #   in dragodis. Perhaps this can be accomplished with having DataTypes entities?
-#             #   dragodis.String(), dragodis.Int16(), etc.
-#             #   line.value = dragodis.String("hello")
-#             # idc.del_items(self.start_ea, idc.DELIT_SIMPLE, len(self.decoded_data))
-#             # idaapi.create_strlit(
-#             #     self.start_ea, len(self.decoded_data), self.string_type
-#             # )
-#         except Exception as e:
-#             logger.warning(
-#                 "Unable to define string at 0x{:0X}: {}".format(self.start_ea, e)
-#             )
-#
-#     # TODO: Refactor this once we get a better idea on how this is integrated/used.
-#     def publish(self, rename=True, patch=True, fill_char=b'\x00', define=True):
-#         """
-#         - Prints a report about the string to the console
-#         - Renames and patches the disassembler's database with decoded data
-#
-#         :param rename: Whether to rename the string in the IDB.
-#         :param patch: Whether to patch the string with the decoded variant in the IDB.
-#         :param str fill_char:
-#             Character to use to fill left over space if decoded data
-#             is shorter than its encoded data.
-#             Set to None leaving the original data.
-#         :param bool define: Whether to define the string after patching.
-#         """
-#         if not self.decoded_data:
-#             logger.warning(
-#                 "Unable to publish string {!r}. Missing decoded_data.".format(self)
-#             )
-#             return
-#
-#         # FIXME: Even though we strip nulls in __unicode__(), there still seems to be some strings
-#         # with null characters seeping through.
-#         kordesii.append_string(str(self).rstrip(u"\x00"))
-#
-#         print("\n")
-#         display = self.report()
-#         print(display)
-#
-#         if rename:
-#             self.rename()
-#         if patch:
-#             self.patch(fill_char=fill_char, define=define)
-#
-#     @property
-#     def start_ea(self) -> Optional[int]:
-#         if self.string_location is None:
-#             return None
-#         return self.string_location + (self.offset or 0)
-#
-#     @property
-#     def end_ea(self) -> Optional[int]:
-#         if self.string_location is None:
-#             return None
-#         return self.start_ea + len(self.decoded_data)
-#
-#     def _get_bytes(self, location, size=None, code_page=None):
-#         """
-#         Extracts bytes from given location.
-#
-#         :param location: Location to pull bytes
-#         :param size: Number of bytes to pull (determines size by looking for terminator if not provided)
-#         :param code_page: Known code_page used to determine terminator.
-#         :return: bytes or None
-#         """
-#         if size:
-#             return self._dis.get_bytes(location, size)
-#         else:
-#             width = 8
-#             if code_page:
-#                 if "16" in code_page:
-#                     width = 16
-#                 elif "32" in code_page:
-#                     width = 32
-#             return self._dis.get_string_bytes(location, length=size, bit_width=width)
-#
-#     def _num_raw_bytes(self, string):
-#         """
-#         Returns the number of raw bytes found in the given unicode string
-#         """
-#         count = 0
-#         for char in string:
-#             char = char.encode("unicode-escape")
-#             count += char.startswith(b"\\x") + char.startswith(b"\\u") * 2
-#         return count
-#
-#     def _decode_unknown_charset(self):
-#         """
-#         Returns a decoded string using the best guess codec.
-#         """
-#         if not self.decoded_data:
-#             return u""
-#
-#         # First see if the decoder already gave us unicode.
-#         if isinstance(self.decoded_data, str):
-#             return self.decoded_data
-#
-#         # If a code page was set (either by us or the decoder) use that.
-#         # If the code page doesn't work... move on.
-#         if self.code_page:
-#             try:
-#                 return self.decoded_data.decode(self.code_page)
-#             except UnicodeDecodeError:
-#                 pass
-#
-#         # TODO: Use chardet if they ever support utf16 without BOM.
-#         best_score = len(self.decoded_data)
-#         best_code_page = None
-#         best_output = None
-#         for code_page in CODE_PAGES:
-#             try:
-#                 output = self.decoded_data.decode(code_page).rstrip(u"\x00")
-#             except UnicodeDecodeError:
-#                 # If it's UTF we may need to strip away some null characters before decoding.
-#                 if code_page in ("utf-16-le", "utf-16-be", "utf-32-le", "utf-32-be"):
-#                     decoded_data = self.decoded_data
-#                     while decoded_data and decoded_data[-1] == 0:
-#                         try:
-#                             decoded_data = decoded_data[:-1]
-#                             output = decoded_data.decode(code_page).rstrip(u"\x00")
-#                         except UnicodeDecodeError:
-#                             continue
-#                         break  # successfully decoded
-#                     else:
-#                         continue
-#                 # otherwise the code page isn't correct.
-#                 else:
-#                     continue
-#
-#             score = self._num_raw_bytes(output)
-#             if not best_output or score < best_score:
-#                 best_score = score
-#                 best_output = output
-#                 best_code_page = code_page
-#
-#         if best_output:
-#             self.code_page = best_code_page
-#             return best_output
-#
-#         return u""
-#
-#     def split(self, define=False) -> List["EncodedString"]:
-#         """
-#         Splits up EncodedString object into a list of multiple EncodedString objects split up by
-#         null terminators, which can contain utf-8 or utf-16 encoded strings.
-#
-#         NOTE: This function assumes one-to-one decryption has occurred.
-#             If not, you can call find_string_data() manually.
-#
-#         The original EncodedString is not modified.
-#
-#         :param define: Whether to define new strings in IDB.
-#         """
-#         new_strings = []
-#         for offset, string_data, encoding in find_string_data(self.decoded_data):
-#             new_string = copy.copy(self)
-#             new_string.encoded_data = self.encoded_data[offset: offset + len(string_data)]
-#             new_string.decoded_data = string_data
-#             new_string.offset = offset
-#             if define:
-#                 new_string.define()
-#             new_strings.append(new_string)
-#         return new_strings
-#
-#
-# class EncodedStackString(EncodedString):
-#     """
-#     Variant of EncodedString that represents a string built from the stack.
-#     """
-#
-#     def __init__(
-#         self,
-#         dis: dragodis.Disassembler,
-#         encoded_data,
-#         frame_id=None,
-#         stack_offset=None,
-#         memory_ptr=None,
-#         string_reference=None,
-#         offset=None,
-#         key=None,
-#         code_page=None,
-#         dest=None,
-#     ):
-#         """
-#         Instantiate an EncodedStackString object.
-#
-#         :param encoded_data:
-#             encoded/encrypted data of string
-#             (This must be provided because stack strings don't have a string_location attribute.)
-#         :param frame_id: The id of the IDA frame containing the stack this string comes from.
-#         :param stack_offset: The offset within the IDA frame containing this string.
-#         :param memory_ptr: Optional extra argument to keep track of pointer to string in memory
-#             when using function_tracing.
-#         :param string_reference:
-#             The location the string is referenced from.
-#             This is required to pull the stack frame when string_location is a stack pointer.
-#         :param offset: Used when there is an offset based accessing scheme.
-#         :param key: Used when there is a key that can vary by string.
-#         :param code_page: known encoding page used to decode data to unicode (after data is decrypted)
-#             (code page is dynamically determined if not provided)
-#         :param dest: Location of decrypted data
-#         """
-#         super(EncodedStackString, self).__init__(
-#             dis,
-#             None,
-#             string_reference=string_reference,
-#             offset=offset,
-#             key=key,
-#             encoded_data=encoded_data,
-#             code_page=code_page,
-#             dest=dest,
-#         )
-#         # Frame ID and Stack Offset are optional because it's not always easy to calculate this.
-#         self.frame_id = frame_id
-#         self.stack_offset = stack_offset
-#         # TODO: Remove memory_ptr, it should be manually added by the decoder after initialization
-#         # if they want to use it.
-#         # Optional extra argument to keep track of pointer to string in memory when using function_tracing.
-#         self.memory_ptr = memory_ptr
-#
-#     def _compare_key(self):
-#         # Sort by where it was found and then by offset within stack.
-#         return (
-#             self.string_reference,
-#             self.frame_id,
-#             self.stack_offset,
-#             self.decoded_data,
-#         )
-#
-#     def report(self):
-#         """
-#         General display format.
-#
-#         :return unicode:
-#             A unicode string with the string's frame ID and stack offset,
-#             reference EA (where applicable), and the decoded value (where applicable).
-#         """
-#         text = u""
-#         if self.frame_id:
-#             text += u"Frame ID: 0x%X\n" % self.frame_id
-#         if self.stack_offset:
-#             text += u"Stack Offset: 0x%X\n" % self.stack_offset
-#         text += super(EncodedStackString, self).report()
-#         return text
-#
-#     # TODO: Yeah, we definatly need to have some type of "Data" or "Structure" support in dragodis to port this.
-#     @property
-#     def xrefs_to(self):
-#         """
-#         Retrieves the xrefs to the stack variable.
-#
-#         NOTE: This code is very SWIGGY because IDA did not properly expose this functionality.
-#
-#         :raises ValueError: if frame_id, stack_offset, or string_reference was not provided.
-#             This is needed to determine what function to use.
-#         """
-#         if self._xrefs_to is None:
-#             if not self.string_reference:
-#                 raise ValueError("Unable to get xrefs without string_reference.")
-#             if not (self.frame_id and self.stack_offset):
-#                 raise ValueError(
-#                     "Unable to get xrefs without frame_id and stack_offset"
-#                 )
-#             xrefs = idaapi.xreflist_t()
-#             frame = idaapi.get_frame(self.frame_id)
-#             func = idaapi.get_func(self.string_reference)
-#             member = idaapi.get_member(frame, self.stack_offset)
-#             idaapi.build_stkvar_xrefs(xrefs, func, member)
-#             self._xrefs_to = [ref.ea for ref in xrefs]
-#         return self._xrefs_to
-#
-#     def rename(self, name=None):
-#         """
-#         Renames (and comments) the string variable in IDA.
-#
-#         :param str name: New name to given encoded string. (defaults to decoded_string)
-#         """
-#         name = name or self.display_name
-#         if not name:
-#             logger.warning(
-#                 "Unable to rename encoded string due to no decoded string: {!r}".format(
-#                     self
-#                 )
-#             )
-#
-#         # Set name and comment in stack variable.
-#         comment = '"{}"'.format(name[: self._MAX_COMMENT_LENGTH])
-#         if len(name) > self._MAX_COMMENT_LENGTH:
-#             comment += " (truncated)"
-#         if self.frame_id and self.stack_offset:
-#             idc.set_member_cmt(self.frame_id, self.stack_offset, comment, repeatable=1)
-#             var_name = re.sub(
-#                 "[^_$?@0-9A-Za-z]", "_", name[: self._MAX_NAME_LENGTH]
-#             )  # Replace invalid characters
-#             if not var_name:
-#                 raise ValueError("Unable to calculate var_name for : {!r}".format(self))
-#             var_name = "a" + var_name.capitalize()
-#             idc.set_member_name(self.frame_id, self.stack_offset, var_name)
-#
-#         if self.dest is not None:
-#             ida_name.force_name(self.dest, name)
-#
-#         # Add a comment where the string is being used.
-#         if self.string_reference:
-#             idc.set_cmt(self.string_reference, comment, 1)
-#
-#     def patch(self, fill_char=None, define=True):
-#         """Does nothing, patching is not a thing for stack strings."""
-#         return self
+    NOTE: This is different from dis.get_string_bytes() since it has no requirement for the data
+    range to be a valid string. It just purely gets bytes up to the first null terminator.
+
+    :param dis: Dragodis disassembler
+    :param addr: Starting address to pull bytes from.
+    :param unit_width: Byte width of string character.
+    :return: Null terminated bytes.
+    """
+    terminator_address = dis.find_bytes(b"\x00" * unit_width, start=addr)
+    if terminator_address == -1:
+        raise ValueError(f"Unable to locate null terminator for 0x{addr:0X}")
+    return dis.get_bytes(addr, terminator_address - addr)
+
+
+class DecodedString:
+    """
+    Holds information about a decoded/decrypted string.
+
+    :param dec_data: Decrypted/decoded string data
+    :param enc_data: Original encrypted/encoded string data
+    :param encoding: Known encoding used to decoded data into a string
+        If not provided, this will be detected using dec_data.
+    :param enc_source: The address or dragodis variable object where the enc_data was found.
+    :param dec_source: The address or dargodis variable object where the dec_data was found.
+    """
+
+    _MAX_COMMENT_LENGTH = 130
+    _MAX_NAME_LENGTH = 30
+
+    def __init__(
+            self,
+            dec_data: bytes,
+            enc_data: bytes = None,
+            encoding: str = None,
+            enc_source: Union[None, int, dragodis.interface.Variable] = None,
+            dec_source: Union[None, int, dragodis.interface.Variable] = None,
+    ):
+        self.data = dec_data
+        self.enc_data = enc_data
+        self.encoding = encoding or self.detect_encoding(dec_data)
+        self.enc_source = enc_source
+        self.dec_source = dec_source
+
+    def __str__(self):
+        """
+        Detects and decodes string data.
+        """
+        return self.data.decode(self.encoding).rstrip("\x00")
+
+    def __bytes__(self):
+        return self.data
+
+    def _num_raw_bytes(self, string: str) -> int:
+        """
+        Returns the number of raw bytes found in the given unicode string
+        """
+        count = 0
+        for char in string:
+            char = char.encode("unicode-escape")
+            count += char.startswith(b"\\x") + char.startswith(b"\\u") * 2
+        return count
+
+    def detect_encoding(self, data: bytes) -> str:
+        """
+        Detects and decodes data using best guess encoding.
+
+        :returns: Decoded string and encoding used.
+        """
+        best_score = len(data)  # lowest score is best
+        best_code_page = None
+        best_output = None
+        for code_page in CODE_PAGES:
+            try:
+                output = data.decode(code_page).rstrip(u"\x00")
+            except UnicodeDecodeError:
+                # If it's UTF we may need to strip away some null characters before decoding.
+                if code_page in ("utf-16-le", "utf-16-be", "utf-32-le", "utf-32-be"):
+                    data_copy = data
+                    while data_copy and data_copy[-1] == 0:
+                        try:
+                            data_copy = data_copy[:-1]
+                            output = data_copy.decode(code_page).rstrip(u"\x00")
+                        except UnicodeDecodeError:
+                            continue
+                        break  # successfully decoded
+                    else:
+                        continue
+                # otherwise the code page isn't correct.
+                else:
+                    continue
+
+            score = self._num_raw_bytes(output)
+            if not best_output or score < best_score:
+                best_score = score
+                best_output = output
+                best_code_page = code_page
+
+        if best_output:
+            return best_code_page
+
+        # We shouldn't hit here since "latin1" should at least hit, but just incase...
+        return "unicode_escape"
+
+    @property
+    def display_name(self) -> str:
+        """Returns a disassembler friendly, printable name for the decoded string."""
+        return str(self).encode(DISPLAY_CODE, "replace").decode(DISPLAY_CODE)
+
+    def _annotate(
+            self,
+            dis: dragodis.Disassembler,
+            item: Union[int, dragodis.interface.Line, dragodis.interface.Variable],
+            name: str = None, comment: str = None
+    ):
+        """
+        Annotates a Dragodis object
+        """
+        if isinstance(item, int):
+            item = dis.get_line(item)
+        if name:
+            item.name = name
+        if comment:
+            if isinstance(item, dragodis.interface.GlobalVariable):
+                item = dis.get_line(item.address)
+                item.set_comment(comment, dragodis.CommentType.repeatable)
+            if isinstance(item, dragodis.interface.Line):
+                item.set_comment(comment, dragodis.CommentType.repeatable)
+
+    def rename(self, dis: dragodis.Disassembler, name=None):
+        """
+         Renames (and comments) the string variable in the disassembler.
+
+         :param str name: New name to given encoded string. (defaults to the decoded string itself)
+         """
+        name = name or self.display_name
+        name = name[:self._MAX_NAME_LENGTH]
+
+        # Add comment
+        comment = 'Dec: "{}"'.format(name[: self._MAX_COMMENT_LENGTH])
+        if len(name) > self._MAX_COMMENT_LENGTH:
+            comment += " (truncated)"
+        # TODO: Determine what to do when a stack source
+        if self.enc_source:
+            self._annotate(dis, self.enc_source, name="enc_"+name, comment=comment)
+        if self.dec_source:
+            self._annotate(dis, self.dec_source, name=name)
+            # TODO: Setting datatype on a Variable is not current supported.
+            # self.dec_source.data_type = dragodis.DataType.name
+
+    def patch(self, dis: dragodis.Disassembler, fill_char=b"\x00", rename=True):
+        """
+        Patches the decrypted string data into the underlying disassembler.
+
+        :param dis: Dragodis disassembler
+        :param fill_char:
+            Character to use to fill left over space if decrypted data
+            is shorter than its encrypted data.
+            (Set to None to leave the original data)
+        :param rename:
+            Whether to also rename the variable names.
+            (This can also be done manually by using .rename())
+        """
+        if rename:
+            self.rename(dis)
+
+        if self.dec_source:
+            dec_data = self.data
+            if fill_char:
+                dec_data += fill_char * (len(self.enc_data) - len(dec_data))
+            dec_source = self.dec_source
+            if isinstance(dec_source, int):
+                dec_source = dis.get_line(dec_source)
+                dec_source.data = dec_data
+            elif isinstance(dec_source, dragodis.interface.GlobalVariable):
+                dec_source = dis.get_line(dec_source.address)
+                dec_source.data = dec_data
+            else:
+                logger.warning(f"Unable to patch {dec_source!r}")

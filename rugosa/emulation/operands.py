@@ -195,7 +195,7 @@ class Operand:
         """
         # Value may be signed.
         if isinstance(value, int) and value < 0:
-            value = utils.unsigned(value, self.width * 8)
+            value = utils.unsigned(value, self.width)
 
         # If we are writing to an immediate, I believe they want to write to the memory at the immediate.
         # TODO: Should we fail instead?

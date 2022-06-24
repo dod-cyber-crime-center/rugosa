@@ -161,7 +161,7 @@ class FunctionArgument:
                     retaddr_size = self._cpu_context.byteness
                     addr += retaddr_size
 
-            # Also adjust the stack if we are in the the function.
+            # Also adjust the stack if we are in the function.
             if in_function:
                 instruction = disassembler.get_instruction(self._cpu_context.ip)
                 addr -= instruction.stack_depth  # this is negative

@@ -153,8 +153,8 @@ class Pattern(object):
             except dragodis.NotExistError:
                 continue
 
-            if func not in cache:
-                cache.add(func)
+            if func.start not in cache:
+                cache.add(func.start)
                 yield func
 
 

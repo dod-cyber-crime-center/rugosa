@@ -1,6 +1,13 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+
+## [Unreleased]
+
+### Added
+- Added `iter_import_calls()` and `iter_import_callers()` functions to better handle pivoting off import functions.
+
+
 ## [0.2.0] - 2022-06-01
 
 ### Changed

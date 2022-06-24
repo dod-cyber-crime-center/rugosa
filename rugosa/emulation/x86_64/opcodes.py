@@ -1323,11 +1323,12 @@ def POPF(cpu_context: ProcessorContext, instruction: Instruction):
 def PUSH(cpu_context: ProcessorContext, instruction: Instruction):
     """ PUSH """
     operand = instruction.operands[0]
-    logger.debug("Pushing 0x%X onto stack", operand.value)
+    value = utils.unsigned(operand.value, operand.width)
+    logger.debug("Pushing 0x%X onto stack", value)
     cpu_context.registers.rsp -= cpu_context.byteness
     cpu_context.memory.write(
         cpu_context.registers.esp,
-        operand.value.to_bytes(operand.width, cpu_context.byteorder)
+        value.to_bytes(operand.width, cpu_context.byteorder)
     )
 
 

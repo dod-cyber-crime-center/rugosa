@@ -469,7 +469,7 @@ def _format_string(ctx, fmt, required_args, string_type=constants.STRING):
         func_sig.remove_argument(-1)
     # For an unknown reason, int is not always being read as a QWORD on 64-bit, so this line
     # forces the issue to ensure pointer addresses aren't being truncated to 32 bits
-    data_type = "QWORD" if ctx.bitness == 64 else "DWORD"
+    data_type = "qword" if ctx.bitness == 64 else "dword"
     for _ in range(len(fmt_vals)):
         func_sig.add_argument(data_type)
     func_args = [arg.value for arg in func_sig.arguments]
