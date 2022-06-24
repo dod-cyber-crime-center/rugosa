@@ -2,10 +2,12 @@
 All notable changes to this project will be documented in this file.
 
 
-## [Unreleased]
+## [0.3.0] - 2022-06-28
 
 ### Added
 - Added `iter_import_calls()` and `iter_import_callers()` functions to better handle pivoting off import functions.
+- Added support for tracking decrypted string with `rugosa.DecodedString`.
+- Bugfixes to better support Ghidra backend.
 
 
 ## [0.2.0] - 2022-06-01
@@ -36,6 +38,7 @@ All notable changes to this project will be documented in this file.
 - Migrated the majority of Kordesii functionality to work with Dragodis.
 
 
-[Unreleased]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.1.1...HEAD
+[Unreleased]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.3.0...HEAD
+[0.3.0]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.2.0...0.3.0
 [0.2.0]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.1.1...0.2.0
 [0.1.1]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.1.0...0.1.1
