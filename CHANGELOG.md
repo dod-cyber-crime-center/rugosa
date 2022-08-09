@@ -2,9 +2,8 @@
 All notable changes to this project will be documented in this file.
 
 
-## [Unreleased]
+## [0.4.0] - 2022-08-10
 
-### Changed
 - `rugosa.emulation.memory.clear_cache()` has been moved to `rugosa.emulation.emulator.Emulator.clear_cache()` in
   order to fix a bug with `cache_clear()` not working when teleported.
 - Improved `rugosa.iter_imports()` function to dedup results.
@@ -48,7 +47,8 @@ All notable changes to this project will be documented in this file.
 - Migrated the majority of Kordesii functionality to work with Dragodis.
 
 
-[Unreleased]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.3.0...HEAD
+[Unreleased]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.4.0...HEAD
+[0.3.0]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.3.0...0.4.0
 [0.3.0]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.2.0...0.3.0
 [0.2.0]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.1.1...0.2.0
 [0.1.1]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.1.0...0.1.1
