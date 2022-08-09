@@ -191,4 +191,4 @@ def find_functions(pattern, dis: dragodis.Disassembler, segment_name: str = None
     else:
         _regex = Pattern(pattern, flags)
 
-    yield from pattern.find_functions(dis, segment_name=segment_name)
+    yield from _regex.find_functions(dis, segment_name=segment_name)

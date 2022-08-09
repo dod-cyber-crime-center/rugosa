@@ -2,6 +2,16 @@
 All notable changes to this project will be documented in this file.
 
 
+## [Unreleased]
+
+### Changed
+- `rugosa.emulation.memory.clear_cache()` has been moved to `rugosa.emulation.emulator.Emulator.clear_cache()` in
+  order to fix a bug with `cache_clear()` not working when teleported.
+- Improved `rugosa.iter_imports()` function to dedup results.
+- Fixed bug in `rugosa.re.find_functions()`.
+- Added ability to get and set `.calling_convention` and `.return_type` in emulated `FunctionSignature`.
+
+
 ## [0.3.0] - 2022-06-28
 
 ### Added

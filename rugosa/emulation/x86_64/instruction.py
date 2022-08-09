@@ -16,17 +16,18 @@ class x86_64Instruction(Instruction):
     def _execute(self):
         # Before executing, determine if a rep* instruction and add termination condition.
         term_condition = None
-        if self._insn.data[0] in (0xF2, 0xF3):
-            text = self.text.lower()  # IDA pro never has operands for rep opcodes, we need to look at the text.
-            if text.startswith("rep "):
+        if rep := self._insn.rep:
+            if rep == "rep":
                 term_condition = lambda ctx: ctx.registers.ecx == 0
                 term_condition.unconditional = True
-            elif text.startswith(("repe ", "repz ")):
+            elif rep in ("repe", "repz"):
                 term_condition = lambda ctx: ctx.registers.ecx == 0 or ctx.registers.zf == 0
                 term_condition.unconditional = False
-            elif text.startswith(("repne ", "repnz ")):
+            elif rep in ("repne", "repnz"):
                 term_condition = lambda ctx: ctx.registers.ecx == 0 or ctx.registers.zf == 1
                 term_condition.unconditional = False
+            else:
+                logger.warning("Got unexpected rep prefix: %s", self.ip)
 
         # Execute like normal if not a rep instruciton.
         if not term_condition:

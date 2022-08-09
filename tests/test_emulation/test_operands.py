@@ -101,7 +101,7 @@ def test_register_list_operands_arm_ghidra(disassembler):
     ctx = emulator.new_context()
     insn = ctx.get_instruction(0x106A8)
     # WARNING: Ghidra merges the operands into 1 for some reason.
-    assert insn.operands[0].text == "sp!,{r4 r5 r6 r7 r8 r9 r10 pc}"
+    assert insn.operands[0].text in ("sp!,{r4 r5 r6 r7 r8 r9 r10 pc}", "sp!,{r4,r5,r6,r7,r8,r9,r10,pc}")
     assert insn.operands[0].register_list == ["sp", "r4", "r5", "r6", "r7", "r8", "r9", "r10", "pc"]
     ctx.registers.sp = 3
     ctx.registers.r4 = 4

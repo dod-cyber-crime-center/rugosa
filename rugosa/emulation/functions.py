@@ -54,6 +54,34 @@ class FunctionSignature:
         return self._signature.declaration
 
     @property
+    def calling_convention(self) -> str:
+        """
+        The calling convention used in the function signature.
+        """
+        return self._signature.calling_convention
+
+    @calling_convention.setter
+    def calling_convention(self, name: str):
+        """
+        Sets the calling convention for the function signature.
+        """
+        self._signature.calling_convention = name
+
+    @property
+    def return_type(self) -> str:
+        """
+        The return type of the function.
+        """
+        return self._signature.return_type.name
+
+    @return_type.setter
+    def return_type(self, data_type: str):
+        """
+        Sets the return type of the function with given data type.
+        """
+        self._signature.return_type = data_type
+
+    @property
     def arguments(self) -> List[FunctionArgument]:
         """
         Gets the defined arguments for the function signature.
@@ -73,6 +101,9 @@ class FunctionSignature:
 
     def insert_argument(self, ordinal: int, data_type: str):
         self._signature.insert_parameter(ordinal, data_type)
+
+    def replace_arguments(self, data_types: List[str]):
+        self._signature.replace_parameters(data_types)
 
 
 class FunctionArgument:

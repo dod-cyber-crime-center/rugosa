@@ -89,6 +89,8 @@ def test_function_signature(disassembler):
         "_BYTE *__cdecl sub_401000(_BYTE *a1, char a2);",
         "undefined cdecl FUN_00401000(byte * param_1, byte param_2)"
     )
+    assert func_sig.calling_convention == "__cdecl"
+    assert func_sig.return_type in ("byte *", "undefined")
     args = func_sig.arguments
     assert len(args) == 2
     assert [(arg.type, arg.name, arg.value) for arg in args] in (

@@ -208,7 +208,7 @@ class Operand:
 
         if self.type == OperandType.register:
             # Convert the value from string to integer...
-            if isinstance(value, str):
+            if isinstance(value, bytes):
                 value = int.from_bytes(value, self._cpu_context.byteorder)
             reg = self._operand.value
             self._cpu_context.registers[reg.name] = value

@@ -6,7 +6,7 @@ import logging
 from typing import Optional
 
 from dragodis import OperandType
-from dragodis.interface import Phrase, MemoryReference
+from dragodis.interface import Phrase, MemoryReference, Immediate
 
 from .. import utils
 from ..operands import Operand
@@ -106,7 +106,7 @@ class x86_64Operand(Operand):
 
         # TODO: Originally this only pulled o_mem types, but now we also do o_near/o_far
         #   Determine if that is okay.
-        elif isinstance(value, MemoryReference):
+        elif isinstance(value, (MemoryReference, Immediate)):
             addr = int(value)
 
         if addr is not None:

@@ -3,6 +3,7 @@ Interface for memory management.
 """
 from __future__ import annotations
 from typing import TYPE_CHECKING, Tuple, List, Optional, Iterable, Union
+import warnings
 
 import collections
 import logging
@@ -42,7 +43,7 @@ class PageMap(collections.defaultdict):
 
     def __init__(self, dis: dragodis.Disassembler, map_segments=True):
         # Setting default_factory to None, because we have overwritten it in __missing__()
-        super(PageMap, self).__init__(None)
+        super().__init__(None)
         self._dis = dis
         if map_segments:
             self.map_segments()
@@ -65,7 +66,7 @@ class PageMap(collections.defaultdict):
 
     def __getitem__(self, page_index):
         try:
-            page = super(PageMap, self).__getitem__(page_index)
+            page = super().__getitem__(page_index)
         except KeyError:
             return self.__missing__(page_index)
 
@@ -133,7 +134,9 @@ def clear_cache():
     Clears the internal cache of segment bytes.
     Calling this will be necessary if you have patched in new bytes into the disassembler.
     """
-    PageMap._segment_cache = {}
+    warnings.warn("clear_cache() as been moved to Emulator.clear_cache()", DeprecationWarning)
+    from rugosa.emulation.emulator import Emulator
+    Emulator.clear_cache()
 
 
 class Memory:

@@ -22,6 +22,7 @@ WARNING:
 import logging
 
 import dragodis
+from dragodis import OperandType
 
 from .. import utils
 from ..cpu_context import ProcessorContext
@@ -1157,7 +1158,7 @@ def movs(cpu_context: ProcessorContext, instruction: Instruction):
     if instruction.mnem == "movsd" and len(operands) == 2:
         op1, op2 = operands
         data = op2.value
-        if op1.is_register:
+        if op1.type == OperandType.register:
             # When moving into an XMM register, the high 64 bits needs to remain untouched.
             data = (data & 0xFFFFFFFFFFFFFFFF0000000000000000) | data
         logger.debug("0x%X -> 0x%X", op2.value, data)

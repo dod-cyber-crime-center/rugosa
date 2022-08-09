@@ -91,6 +91,17 @@ class Emulator:
         self.disabled_rep = False
         self.teleported = False
 
+    @classmethod
+    def clear_cache(cls):
+        """
+        Clears any internal caching during previous emulation runs.
+        Calling this will be necessary if you have patched in new bytes into the disassembler and would like
+        the emulator's memory object to reflect this change.
+        """
+        # Necessary to import PageMap here because we could be teleported.
+        from rugosa.emulation.memory import PageMap
+        PageMap._segment_cache = {}
+
     def disable(self, name: str):
         """
         Disables the use of a specific opcode or function hook.

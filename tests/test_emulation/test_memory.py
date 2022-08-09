@@ -25,13 +25,13 @@ def test_memory(disassembler):
 
     # test str print
     min_addr = disassembler.min_address
-    assert str(memory) == dedent(
+    assert str(memory).startswith(dedent(
         f"""\
         Base Address             Address Range            Size
         0x00121000               0x00121000 - 0x00123000  8192
         0x{min_addr:08X}               0x{min_addr:08X} - 0x0040E000  {0x40E000-min_addr}
     """
-    )
+    ))
 
     # test searching
     assert memory.find(b"helloworld", start=0x0011050) == 0x00121FFB
@@ -84,3 +84,39 @@ def test_memory_arm(disassembler, address, data):
 
     assert disassembler.get_bytes(address, len(data)) == data
     assert memory.read(address, len(data)) == data
+
+
+def test_cache_clear(disassembler):
+    """
+    Tests clearing cache will cause emulator to re-retrieve data from the underlying disassembler.
+    (Necessary when patching data with the disassembler.)
+    """
+    address = 0x40C000
+    data = b"Idmmn!Vnsme"
+    new_data = b"hello world"
+
+    emulator = Emulator(disassembler)
+    context = emulator.new_context()
+    memory = context.memory
+
+    # confirm we can get the original data.
+    assert memory.read(address, len(data)) == data
+    # patch the memory with something new.
+    with disassembler.get_segment(".data").open() as memory_stream:
+        memory_stream.seek_address(address)
+        memory_stream.write(new_data)
+    # we still shouldn't have been able to get the new patched bytes yet due to caching
+    assert memory.read(address, len(data)) == data
+    assert emulator.new_context().memory.read(address, len(data)) == data
+    # clear cache and see if we now get the new data.
+    emulator.clear_cache()
+    assert memory.read(address, len(data)) == new_data
+    assert emulator.new_context().memory.read(address, len(data)) == new_data
+
+    # reset
+    with disassembler.get_segment(".data").open() as memory_stream:
+        memory_stream.seek_address(address)
+        memory_stream.reset(len(data))
+    emulator.clear_cache()
+    assert memory.read(address, len(data)) == data
+    assert emulator.new_context().memory.read(address, len(data)) == data

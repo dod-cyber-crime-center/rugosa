@@ -8,7 +8,7 @@ import logging
 
 import dragodis
 from dragodis import Disassembler, ReferenceType, NotExistError, OperandType
-from dragodis.interface import Function
+from dragodis.interface import Function, Line, Symbol
 
 logger = logging.getLogger(__name__)
 
@@ -104,22 +104,42 @@ def iter_functions(dis: Disassembler, func_names: Union[None, str, List[str]] = 
     """
     if isinstance(func_names, str):
         func_names = [func_names]
+    
+    emitted = set()
 
     # Yield declared functions.
     for func in dis.functions():
         name = func.name
         if _match_name(func_names, name):
-            yield func.start, name
+            if func.start not in emitted:
+                emitted.add(func.start)
+                yield func.start, name
 
     # Also yield from imported.
     for import_ in dis.imports:
         if _match_name(func_names, import_.name):
-            yield import_.address, import_.name
+            if import_.address not in emitted:
+                emitted.add(import_.address)
+                yield import_.address, import_.name
 
     # Yield dynamically resolved functions.
     for ea, name in iter_dynamic_functions(dis):
         if _match_name(func_names, name):
-            yield ea, name
+            if ea not in emitted:
+                emitted.add(ea)
+                yield ea, name
+
+
+def _iter_calls_to(dis: Disassembler, target: Union[Line, Symbol]) -> Iterable[int]:
+    for ref in target.references_to:
+        if ref.type == ReferenceType.code_call:
+            yield ref.from_address
+        elif ref.type == ReferenceType.data_read:
+            # some imports without a thunk function will only have a read reference
+            # circumventing this with an explicit call instruction check at the read reference
+            inst = dis.get_instruction(ref.from_address)
+            if inst.is_call:
+                yield ref.from_address
 
 
 def iter_calls_to(dis: Disassembler, addr: int) -> Iterable[int]:
@@ -127,13 +147,11 @@ def iter_calls_to(dis: Disassembler, addr: int) -> Iterable[int]:
     Iterates the calls to the given address.
 
     :param dis: dragodis Disassembler object
-    :param func_ea: Address of a function call.
+    :param func_ea: Address of a function.
     :yields: Call instruction address
     """
     line = dis.get_line(addr)
-    for ref in line.references_to:
-        if ref.type == ReferenceType.code_call:
-            yield ref.from_address
+    yield from _iter_calls_to(dis, line)
 
 
 def iter_import_calls(dis: Disassembler, name: str) -> Iterable[int]:
@@ -145,9 +163,7 @@ def iter_import_calls(dis: Disassembler, name: str) -> Iterable[int]:
     :yields: Call instruction address
     """
     imp = dis.get_import(name)
-    for ref in imp.references_to:
-        if ref.type == ReferenceType.code_call:
-            yield ref.from_address
+    yield from _iter_calls_to(dis, imp)
 
 
 def iter_import_callers(dis: Disassembler, name: str) -> Iterable[Function]:
@@ -173,7 +189,7 @@ def iter_callers(dis: Disassembler, addr: int) -> Iterable[Function]:
     """
     Iterates Function objects that call the given address.
 
-    :param addr: Address of a function call.
+    :param addr: Address of a function.
     :return:
     """
     cache = set()
