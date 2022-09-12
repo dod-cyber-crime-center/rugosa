@@ -2,7 +2,7 @@
 All notable changes to this project will be documented in this file.
 
 
-## [Unreleased]
+## [0.5.0] - 2022-09-15
 - Added ability to emulate functions calls. (See [documentation](./docs/CPUEmulation.md#emulating-function-calls))
 - Added ability to execute full functions with `Emulator.execute_function()`.
 - Added tracking of stdout in `ProcessorContext`.
@@ -56,7 +56,8 @@ All notable changes to this project will be documented in this file.
 - Migrated the majority of Kordesii functionality to work with Dragodis.
 
 
-[Unreleased]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.4.0...HEAD
+[Unreleased]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.5.0...HEAD
+[0.5.0]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.4.0...0.5.0
 [0.4.0]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.3.0...0.4.0
 [0.3.0]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.2.0...0.3.0
 [0.2.0]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.1.1...0.2.0
