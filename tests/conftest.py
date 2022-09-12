@@ -15,7 +15,7 @@ def _get_strings_path(arch, tmp_path_factory) -> pathlib.Path:
     return new_strings_path
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def disassembler(request, tmp_path_factory) -> dragodis.Disassembler:
     """
     This fixture gets indirectly called by pytest_generate_tests.

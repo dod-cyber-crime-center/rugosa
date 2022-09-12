@@ -2,6 +2,15 @@
 All notable changes to this project will be documented in this file.
 
 
+## [Unreleased]
+- Added ability to emulate functions calls. (See [documentation](./docs/CPUEmulation.md#emulating-function-calls))
+- Added ability to execute full functions with `Emulator.execute_function()`.
+- Added tracking of stdout in `ProcessorContext`.
+- Added `printf` call hook.
+- Changed `ProcessorContext.func_calls` to `ProcessorContext.call_history`. `func_calls` is now deprecated.
+- Added ability to stream emulated memory using `context.memory.open()`. (See [documentation](./docs/CPUEmulation.md#memory-streaming))
+
+
 ## [0.4.0] - 2022-08-10
 
 - `rugosa.emulation.memory.clear_cache()` has been moved to `rugosa.emulation.emulator.Emulator.clear_cache()` in
@@ -48,7 +57,7 @@ All notable changes to this project will be documented in this file.
 
 
 [Unreleased]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.4.0...HEAD
-[0.3.0]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.3.0...0.4.0
+[0.4.0]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.3.0...0.4.0
 [0.3.0]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.2.0...0.3.0
 [0.2.0]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.1.1...0.2.0
 [0.1.1]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.1.0...0.1.1

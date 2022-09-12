@@ -33,7 +33,7 @@ def test_func_emulate(disassembler):
     assert context.memory.read_data(ptr) == b"cybertruck"
 
 
-def test_function_hooking(disassembler):
+def test_function_hooking_all(disassembler):
     """Tests function hooking mechanism."""
     emulator = Emulator(disassembler)
 

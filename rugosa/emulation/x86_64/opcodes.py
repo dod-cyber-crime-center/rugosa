@@ -205,7 +205,7 @@ def CALL(cpu_context: ProcessorContext, instruction: Instruction):
         ret_addr = instruction.next_ip
         cpu_context.memory.write(cpu_context.sp, ret_addr.to_bytes(cpu_context.byteness, cpu_context.byteorder))
 
-        instruction.execute_call_hooks(func_name, func_ea)
+        cpu_context._execute_call(func_ea, func_name, instruction.ip)
 
         # Pop return address from the stack, set ip to return address.
         cpu_context.sp += cpu_context.byteness

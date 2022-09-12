@@ -4,6 +4,7 @@ Interface for instruction management.
 from __future__ import annotations
 
 import logging
+import warnings
 from copy import deepcopy
 from typing import List, TYPE_CHECKING
 
@@ -173,7 +174,7 @@ class Instruction:
         Emulate the instruction and store results in the context.
         """
         # Log a header line for debug messages of this instruction.
-        # This is simpler and faster then trying to include the information at each log line
+        # This is simpler and faster than trying to include the information at each log line
         logger.debug("[0x%X %03X] :: %s", self.ip, self._cpu_context.sp_diff, self.mnem)
 
         # Set instruction pointer to where we are currently executing.
@@ -205,14 +206,13 @@ class Instruction:
         # Run any post-hooks.
         self._execute_hooks(pre=False)
 
-        # Add a blank space to help visualy separate logs for each instruction.
+        # Add a blank space to help visually separate logs for each instruction.
         logger.debug("  ")
 
         # After execution, set instruction pointer to next instruction assuming
         # standard code flow and if no jump was made.
         if self._cpu_context.ip == self.ip:
-            disassembler = self._cpu_context.emulator.disassembler
-            self._cpu_context.ip = disassembler.get_line(self.ip).next.address
+            self._cpu_context.ip = self.next_ip
 
     def execute_call_hooks(self, func_name, func_ea):
         """
@@ -222,46 +222,5 @@ class Instruction:
         :param func_name: Name of the function (or empty string)
         :param func_ea: Address of function to call.
         """
-        # Tell context that we are currently emulating a function hook.
-        # This information is import for things like pulling out function arguments out correctly.
-        self._cpu_context.hooking_call = func_ea
-
-        try:
-            # Report on function call and their arguments.
-            arg_objs = self._cpu_context.get_function_args(func_ea)
-            args = [arg_obj.value for arg_obj in arg_objs]
-            self._cpu_context.func_calls[self.ip] = (func_name, args)
-
-            # Emulate the effects of any known builtin functions.
-            func = self._cpu_context.emulator.get_call_hook(func_ea)
-            if not func:
-                func = self._cpu_context.emulator.get_call_hook(func_name)
-                if not func:
-                    # Try one more time with a sanitized name.
-                    func_name = utils.sanitize_func_name(func_name)
-                    func = self._cpu_context.emulator.get_call_hook(func_name)
-            if func:
-                try:
-                    logger.debug(
-                        "Emulating %s(%s)",
-                        func_name,
-                        ", ".join(f"{arg_obj.name}={hex(arg_obj.value)}" for arg_obj in arg_objs)
-                    )
-                    logger.debug("Running hook: %r", func)
-                    ret = func(self._cpu_context, func_name, args)
-                    if ret is True:
-                        ret = 1
-                    elif ret is False:
-                        ret = 0
-                    # Set return value to rax
-                    if ret is not None:
-                        if not isinstance(ret, int):
-                            raise TypeError(f"Invalid return type. Expected 'int' but got '{type(ret)}'")
-                        self._cpu_context.ret = ret
-                except RuntimeError:
-                    raise  # Allow RuntimeError exceptions to be thrown.
-                except Exception as e:
-                    logger.debug("Failed to emulate builtin function: %s() with error: %s", func_name, e)
-
-        finally:
-            self._cpu_context.hooking_call = None
+        warnings.warn("execute_call_hooks() has been moved to ProcessorContext._execute_call()", DeprecationWarning)
+        self._cpu_context._execute_call(func_ea, func_name, self.ip)

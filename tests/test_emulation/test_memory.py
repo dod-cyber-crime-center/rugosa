@@ -1,3 +1,5 @@
+import os
+
 import pytest
 from textwrap import dedent
 
@@ -24,14 +26,13 @@ def test_memory(disassembler):
     assert memory.read(0x00401150, 3) == b"\x55\x8B\xEC"
 
     # test str print
+    # (not testing the full printout because segments and their sizes can differ for each disassembler)
     min_addr = disassembler.min_address
-    assert str(memory).startswith(dedent(
-        f"""\
+    print(str(memory))
+    assert str(memory).startswith(dedent(f"""\
         Base Address             Address Range            Size
         0x00121000               0x00121000 - 0x00123000  8192
-        0x{min_addr:08X}               0x{min_addr:08X} - 0x0040E000  {0x40E000-min_addr}
-    """
-    ))
+        0x{min_addr:08X}               0x{min_addr:08X} - """))
 
     # test searching
     assert memory.find(b"helloworld", start=0x0011050) == 0x00121FFB
@@ -120,3 +121,32 @@ def test_cache_clear(disassembler):
     emulator.clear_cache()
     assert memory.read(address, len(data)) == data
     assert emulator.new_context().memory.read(address, len(data)) == data
+
+
+def test_streaming(disassembler):
+    """
+    Tests creating a file-like stream for emulated memory.
+    """
+    emulator = Emulator(disassembler)
+    context = emulator.new_context()
+
+    with context.memory.open() as stream:
+        assert stream.tell() == 0
+        assert stream.tell_address() in (0x400000, 0x401000)
+
+        stream.seek_address(0x40C000)
+        assert stream.read(11) == b"Idmmn!Vnsme"
+        assert stream.tell_address() == 0x40C000 + 11
+
+        data = stream.read()
+        # Size depends on disassembler and whether they include the trailing uninitialized bytes.
+        assert len(data) in (8181, 12277)
+        assert data.startswith(b' \x00\x00\x00\x00Vgqv"qvpkle"ukvj"ig{')
+
+    with context.memory.open(0x40C000) as stream:
+        assert stream.read(11) == b"Idmmn!Vnsme"
+        assert stream.write(b"hello") == 5
+        assert stream.tell() == 16
+        assert stream.seek(-5, os.SEEK_CUR) == 11
+        assert context.memory.read(0x40C000 + 11, 5) == b"hello"
+        assert stream.read(5) == b"hello"

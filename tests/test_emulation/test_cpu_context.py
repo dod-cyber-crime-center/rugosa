@@ -3,6 +3,58 @@ import pytest
 from rugosa.emulation.emulator import Emulator
 from rugosa.emulation.constants import DWORD, BYTE
 
+ENC_DATA = [
+    b"Idmmn!Vnsme ",
+    b'Vgqv"qvpkle"ukvj"ig{"2z20',
+    b"Wkf#rvj`h#aqltm#el{#ivnsp#lufq#wkf#obyz#gld-",
+    b"Keo$mw$wpvkjc$ej`$ehwk$cmraw$wle`a*",
+    b"Dfla%gpwkv%mji`v%lk%rjji%fijqm+",
+    b"Egru&ghb&biau&cgen&ngrc&rnc&irnct(",
+    b"\\cv}3g{v3pargv3qfg3w|}4g3qavrx3g{v3t\x7fr``=",
+    b"C\x7frer7c\x7fr7q{xxs7zve|7~d7cry7~yt\x7frd9",
+    b'+()./,-"#*',
+    b"`QFBWFsQL@FPPb",
+    b"tSUdFS",
+    b"\x01\x13\x10n\x0e\x05\x14",
+    b'-",5 , v,tr4v,trv4t,v\x7f,ttt',
+    b"@AKJDGBA@KJGDBJKAGDC",
+    (
+        b"!\x1d\x10U\x05\x14\x06\x01U\x02\x1c\x19\x19U\x19\x1a\x1a\x1eU\x17\x07\x1c"
+        b"\x12\x1d\x01\x10\x07U\x01\x1a\x18\x1a\x07\x07\x1a\x02["
+    ),
+    (
+        b"4\x16\x05\x04W\x16\x19\x13W\x15\x02\x04\x04\x12\x04W\x04\x03\x16\x1b\x1b"
+        b"\x12\x13W\x1e\x19W\x04\x16\x19\x13W\x13\x05\x1e\x11\x03\x04Y"
+    ),
+    (
+        b".\x12\x1fZ\x10\x1b\x19\x11\x1f\x0eZ\x12\x0f\x14\x1dZ\x15\x14Z\x0e\x12\x1f"
+        b"Z\x18\x1b\x19\x11Z\x15\x1cZ\x0e\x12\x1fZ\r\x13\x1e\x1fZ\x19\x12\x1b\x13\x08T"
+    ),
+    b"LMFOGHKNLMGFOHKFGNLKHNMLOKGNKGHFGLHKGLMHKGOFNMLHKGFNLMJNMLIJFGNMLOJIMLNGFJHNM",
+]
+
+DEC_DATA = [
+    # address, data, key
+    (0x40C000, b'Hello World!', 0x01),
+    (0x40C010, b'Test string with key 0x02', 0x02),
+    (0x40C02C, b'The quick brown fox jumps over the lazy dog.', 0x03),
+    (0x40C05C, b'Oak is strong and also gives shade.', 0x04),
+    (0x40C080, b'Acid burns holes in wool cloth.', 0x05),
+    (0x40C0A0, b'Cats and dogs each hate the other.', 0x06),
+    (0x40C0C4, b"Open the crate but don't break the glass.", 0x13),
+    (0x40C0F0, b'There the flood mark is ten inches.', 0x17),
+    (0x40C114, b'1234567890', 0x1a),
+    (0x40C120, b'CreateProcessA', 0x23),
+    (0x40C130, b'StrCat', 0x27),
+    (0x40C138, b'ASP.NET', 0x40),
+    (0x40C140, b'kdjsfjf0j24r0j240r2j09j222', 0x46),
+    (0x40C15C, b'32897412389471982470', 0x73),
+    (0x40C174, b'The past will look brighter tomorrow.', 0x75),
+    (0x40C19C, b'Cars and busses stalled in sand drifts.', 0x77),
+    (0x40C1C4, b'The jacket hung on the back of the wide chair.', 0x7a),
+    (0x40C1F8, b'32908741328907498134712304814879837483274809123748913251236598123056231895712', 0x7f),
+]
+
 
 def test_cpu_context_x86(disassembler):
     emulator = Emulator(disassembler)
@@ -53,35 +105,7 @@ def test_cpu_context_x86(disassembler):
         assert context.ip == 0x00401003
         # mov     eax, [ebp+arg_0]
         strings.append(context.memory.read_data(context.operands[1].value))
-    assert strings == [
-        b"Idmmn!Vnsme ",
-        b'Vgqv"qvpkle"ukvj"ig{"2z20',
-        b"Wkf#rvj`h#aqltm#el{#ivnsp#lufq#wkf#obyz#gld-",
-        b"Keo$mw$wpvkjc$ej`$ehwk$cmraw$wle`a*",
-        b"Dfla%gpwkv%mji`v%lk%rjji%fijqm+",
-        b"Egru&ghb&biau&cgen&ngrc&rnc&irnct(",
-        b"\\cv}3g{v3pargv3qfg3w|}4g3qavrx3g{v3t\x7fr``=",
-        b"C\x7frer7c\x7fr7q{xxs7zve|7~d7cry7~yt\x7frd9",
-        b'+()./,-"#*',
-        b"`QFBWFsQL@FPPb",
-        b"tSUdFS",
-        b"\x01\x13\x10n\x0e\x05\x14",
-        b'-",5 , v,tr4v,trv4t,v\x7f,ttt',
-        b"@AKJDGBA@KJGDBJKAGDC",
-        (
-            b"!\x1d\x10U\x05\x14\x06\x01U\x02\x1c\x19\x19U\x19\x1a\x1a\x1eU\x17\x07\x1c"
-            b"\x12\x1d\x01\x10\x07U\x01\x1a\x18\x1a\x07\x07\x1a\x02["
-        ),
-        (
-            b"4\x16\x05\x04W\x16\x19\x13W\x15\x02\x04\x04\x12\x04W\x04\x03\x16\x1b\x1b"
-            b"\x12\x13W\x1e\x19W\x04\x16\x19\x13W\x13\x05\x1e\x11\x03\x04Y"
-        ),
-        (
-            b".\x12\x1fZ\x10\x1b\x19\x11\x1f\x0eZ\x12\x0f\x14\x1dZ\x15\x14Z\x0e\x12\x1f"
-            b"Z\x18\x1b\x19\x11Z\x15\x1cZ\x0e\x12\x1fZ\r\x13\x1e\x1fZ\x19\x12\x1b\x13\x08T"
-        ),
-        b"LMFOGHKNLMGFOHKFGNLKHNMLOKGNKGHFGLHKGLMHKGOFNMLHKGFNLMJNMLIJFGNMLOJIMLNGFJHNM",
-    ]
+    assert strings == ENC_DATA
 
     # Test pulling arguments from a call.
     context = emulator.context_at(0x0040103A)
@@ -139,26 +163,7 @@ def test_cpu_context_x86(disassembler):
         while result not in context.variables:
             result -= 1
         strings.append((context.memory.read_data(result), context.passed_in_args[1].value))
-    assert strings == [
-        (b'Hello World!', 0x01),
-        (b'Test string with key 0x02', 0x02),
-        (b'The quick brown fox jumps over the lazy dog.', 0x03),
-        (b'Oak is strong and also gives shade.', 0x04),
-        (b'Acid burns holes in wool cloth.', 0x05),
-        (b'Cats and dogs each hate the other.', 0x06),
-        (b"Open the crate but don't break the glass.", 0x13),
-        (b'There the flood mark is ten inches.', 0x17),
-        (b'1234567890', 0x1a),
-        (b'CreateProcessA', 0x23),
-        (b'StrCat', 0x27),
-        (b'ASP.NET', 0x40),
-        (b'kdjsfjf0j24r0j240r2j09j222', 0x46),
-        (b'32897412389471982470', 0x73),
-        (b'The past will look brighter tomorrow.', 0x75),
-        (b'Cars and busses stalled in sand drifts.', 0x77),
-        (b'The jacket hung on the back of the wide chair.', 0x7a),
-        (b'32908741328907498134712304814879837483274809123748913251236598123056231895712', 0x7f),
-    ]
+    assert strings == [(data, key) for _, data, key in DEC_DATA]
 
 
 def test_cpu_context_arm(disassembler):
@@ -216,35 +221,7 @@ def test_cpu_context_arm(disassembler):
         assert context.ip == 0x10408
         # STR     R0, [R11,#var_8]
         strings.append(context.memory.read_data(context.operands[0].value))
-    assert strings == [
-        b"Idmmn!Vnsme ",
-        b'Vgqv"qvpkle"ukvj"ig{"2z20',
-        b"Wkf#rvj`h#aqltm#el{#ivnsp#lufq#wkf#obyz#gld-",
-        b"Keo$mw$wpvkjc$ej`$ehwk$cmraw$wle`a*",
-        b"Dfla%gpwkv%mji`v%lk%rjji%fijqm+",
-        b"Egru&ghb&biau&cgen&ngrc&rnc&irnct(",
-        b"\\cv}3g{v3pargv3qfg3w|}4g3qavrx3g{v3t\x7fr``=",
-        b"C\x7frer7c\x7fr7q{xxs7zve|7~d7cry7~yt\x7frd9",
-        b'+()./,-"#*',
-        b"`QFBWFsQL@FPPb",
-        b"tSUdFS",
-        b"\x01\x13\x10n\x0e\x05\x14",
-        b'-",5 , v,tr4v,trv4t,v\x7f,ttt',
-        b"@AKJDGBA@KJGDBJKAGDC",
-        (
-            b"!\x1d\x10U\x05\x14\x06\x01U\x02\x1c\x19\x19U\x19\x1a\x1a\x1eU\x17\x07\x1c"
-            b"\x12\x1d\x01\x10\x07U\x01\x1a\x18\x1a\x07\x07\x1a\x02["
-        ),
-        (
-            b"4\x16\x05\x04W\x16\x19\x13W\x15\x02\x04\x04\x12\x04W\x04\x03\x16\x1b\x1b"
-            b"\x12\x13W\x1e\x19W\x04\x16\x19\x13W\x13\x05\x1e\x11\x03\x04Y"
-        ),
-        (
-            b".\x12\x1fZ\x10\x1b\x19\x11\x1f\x0eZ\x12\x0f\x14\x1dZ\x15\x14Z\x0e\x12\x1f"
-            b"Z\x18\x1b\x19\x11Z\x15\x1cZ\x0e\x12\x1fZ\r\x13\x1e\x1fZ\x19\x12\x1b\x13\x08T"
-        ),
-        b"LMFOGHKNLMGFOHKFGNLKHNMLOKGNKGHFGLHKGLMHKGOFNMLHKGFNLMJNMLIJFGNMLOJIMLNGFJHNM",
-    ]
+    assert strings == ENC_DATA
 
     # Test pulling arguments from a call.
     context = emulator.context_at(0x1046C)
@@ -295,23 +272,86 @@ def test_cpu_context_arm(disassembler):
         key = var.value
         result = context.memory.read_data(context.passed_in_args[0].value)
         strings.append((result, key))
-    assert strings == [
-        (b'Hello World!', 0x01),
-        (b'Test string with key 0x02', 0x02),
-        (b'The quick brown fox jumps over the lazy dog.', 0x03),
-        (b'Oak is strong and also gives shade.', 0x04),
-        (b'Acid burns holes in wool cloth.', 0x05),
-        (b'Cats and dogs each hate the other.', 0x06),
-        (b"Open the crate but don't break the glass.", 0x13),
-        (b'There the flood mark is ten inches.', 0x17),
-        (b'1234567890', 0x1a),
-        (b'CreateProcessA', 0x23),
-        (b'StrCat', 0x27),
-        (b'ASP.NET', 0x40),
-        (b'kdjsfjf0j24r0j240r2j09j222', 0x46),
-        (b'32897412389471982470', 0x73),
-        (b'The past will look brighter tomorrow.', 0x75),
-        (b'Cars and busses stalled in sand drifts.', 0x77),
-        (b'The jacket hung on the back of the wide chair.', 0x7a),
-        (b'32908741328907498134712304814879837483274809123748913251236598123056231895712', 0x7f),
-    ]
+    assert strings == [(data, key) for _, data, key in DEC_DATA]
+
+
+def test_call_depth_basic_x86(disassembler):
+    """
+    Low level test for ProcessorContext._execute_call()
+    """
+    emulator = Emulator(disassembler)
+
+    # Emulate up to the sub_401000 call
+    ctx = emulator.context_at(0x0040103A)
+    ptr = ctx.function_args[0].value
+    ctx._call_depth = 1
+
+    # Push return address on the stack and set the ip to the function's start address.
+    # (Doing this manually, because we aren't emulating the 'call' opcode in this method.)
+    ctx.sp -= ctx.byteness
+    ret_addr = ctx.instruction.next_ip
+    ctx.memory.write(ctx.sp, ret_addr.to_bytes(ctx.byteness, ctx.byteorder))
+
+    # Execute the call to sub_401000 (the decrypt function)
+    ctx._execute_call(0x401000)
+    assert ctx.memory.read_data(ptr) == b"Hello World!"
+
+
+def test_call_depth_x86(disassembler):
+    """
+    High level test for emulating function calls during emulation.
+    """
+    emulator = Emulator(disassembler)
+    data_ptr = 0x40C000
+
+    # Test with context_at()
+    ctx = emulator.context_at(0x40103F, call_depth=1)
+    assert ctx.memory.read_data(data_ptr) == b"Hello World!"
+    ctx = emulator.context_at(0x401142, call_depth=1)
+    assert [ctx.memory.read_data(ptr) for ptr, _, _ in DEC_DATA] == [data for _, data, _ in DEC_DATA]
+
+    # Test with direct ctx.execute() call.
+    ctx = emulator.new_context()
+    func = disassembler.get_function(0x401030)
+    ctx.execute(start=func.start, end=func.end, call_depth=1)
+    assert [ctx.memory.read_data(ptr) for ptr, _, _ in DEC_DATA] == [data for _, data, _ in DEC_DATA]
+
+
+def test_execute_function_x86(disassembler):
+    """
+    Tests the Emulator.execute_function()
+    """
+    emulator = Emulator(disassembler)
+    # Test with emulating the full function.
+    ctx = emulator.execute_function(0x401030, call_depth=1)
+    assert ctx.memory.read_data(0x40C000) == b"Hello World!"
+    assert [ctx.memory.read_data(ptr) for ptr, _, _ in DEC_DATA] == [data for _, data, _ in DEC_DATA]
+
+
+def test_execute_function_printf_x86(disassembler):
+    """
+    Tests running the full main function which contains printf's so we can also test
+    if stdout is written correctly.
+    """
+    emulator = Emulator(disassembler)
+    ctx = emulator.execute_function(0x401150, call_depth=3)  # main function
+    assert ctx.stdout == """\
+Hello World!
+Test string with key 0x02
+The quick brown fox jumps over the lazy dog.
+Oak is strong and also gives shade.
+Acid burns holes in wool cloth.
+Cats and dogs each hate the other.
+Open the crate but don't break the glass.
+There the flood mark is ten inches.
+1234567890
+CreateProcessA
+StrCat
+ASP.NET
+kdjsfjf0j24r0j240r2j09j222
+32897412389471982470
+The past will look brighter tomorrow.
+Cars and busses stalled in sand drifts.
+The jacket hung on the back of the wide chair.
+32908741328907498134712304814879837483274809123748913251236598123056231895712
+"""

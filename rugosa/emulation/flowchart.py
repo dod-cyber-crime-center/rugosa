@@ -1,14 +1,19 @@
 """
 This module uses Dragodis's Flowchart object in order to calculate code paths.
 """
+from __future__ import annotations
 import functools
 from copy import deepcopy
 
 import logging
-from typing import Optional, Iterable
+from typing import TYPE_CHECKING, Optional, Iterable
 
 from dragodis import NotExistError
 from dragodis.interface import Flowchart, BasicBlock
+
+if TYPE_CHECKING:
+    from .cpu_context import ProcessorContext
+
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +26,7 @@ class PathNode:
 
     _cache = {}
 
-    def __new__(cls, block: "BasicBlock", prev: Optional["PathNode"]):
+    def __new__(cls, block: BasicBlock, prev: Optional[PathNode]):
         """
         Constructor that caches and reuses existing instances.
         """
@@ -34,7 +39,7 @@ class PathNode:
             cls._cache[key] = self
             return self
 
-    def __init__(self, block: "BasicBlock", prev: Optional["PathNode"]):
+    def __init__(self, block: BasicBlock, prev: Optional[PathNode]):
         """
         Initialize a path node.
 
@@ -46,9 +51,10 @@ class PathNode:
         self._context = None
         self._context_address = None  # address that the context has been filled to (but not including)
         self._init_context = None     # the context used at the starting path
+        self._call_depth = 0          # the number of calls deep we are allowed to emulated
 
     @classmethod
-    def iter_all(cls, block: BasicBlock, _visited=None) -> Iterable["PathNode"]:
+    def iter_all(cls, block: BasicBlock, _visited=None) -> Iterable[PathNode]:
         """
         Iterates all tail path nodes from a given block.
 
@@ -111,11 +117,15 @@ class PathNode:
         if self.prev:
             yield from reversed(self.prev)
 
-    def cpu_context(self, addr: int = None, *, init_context: "ProcessorContext"):
+    def cpu_context(self, addr: int = None, *, call_depth: int = 0, init_context: ProcessorContext) -> ProcessorContext:
         """
         Returns the cpu context filled to (but not including) the specified ea.
 
         :param int addr: address of interest (defaults to the last ea of the block)
+        :param call_depth: Number of function calls we are allowed to emulate into.
+            When we hit our limit (depth is 0), emulation will no longer jump into function calls.
+            (Defaults to not emulating into any function calls.)
+            NOTE: This does not affect call hooks.
         :param init_context: Initial context to use for the start of the path. (required)
 
         :return cpu_context.ProcessorContext: cpu context
@@ -132,9 +142,11 @@ class PathNode:
         else:
             end = addr
 
-        # Determine if we need to force the creation of a new context if we have a different init_context.
-        new_init_context = self._init_context != init_context
+        # Determine if we need to force the creation of a new context if we have a different init_context
+        # or call_depth.
+        new_init_context = self._init_context != init_context or self._call_depth != call_depth
         self._init_context = init_context
+        self._call_depth = call_depth
 
         assert end is not None
         # Fill context up to requested endpoint.
@@ -142,11 +154,11 @@ class PathNode:
             # Create context if:
             #   - not created
             #   - current context goes past requested ea
-            #   - given init_context is different from the previously given init_context.
+            #   - given init_context/call_depth is different from the previously given init_context/call_depth.
             if not self._context or self._context_address > end or new_init_context:
                 # Need to check if there is a prev, if not, then we need to create a default context here...
                 if self.prev:
-                    self._context = self.prev.cpu_context(init_context=init_context)
+                    self._context = self.prev.cpu_context(call_depth=call_depth, init_context=init_context)
                     # Modify the context for the current branch if required
                     self._context.prep_for_branch(self.block.start)
                 else:
@@ -160,7 +172,7 @@ class PathNode:
                 for line in self.block.lines(start=self._context_address):
                     if line.address == end:
                         break
-                    self._context.execute(line.address)
+                    self._context.execute(line.address, call_depth=call_depth)
 
             self._context_address = end
 

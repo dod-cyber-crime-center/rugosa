@@ -13,7 +13,7 @@ import inspect
 import logging
 import warnings
 from copy import deepcopy
-from typing import Optional, Tuple, List, Iterable, Callable
+from typing import Optional, Tuple, List, Iterable, Callable, Union
 
 import dragodis
 from dragodis.utils import in_ida
@@ -189,28 +189,28 @@ class Emulator:
         """
         self._opcode_hooks[opcode.lower()] = func
 
-    def emulate_call(self, name_or_start_ea):
+    def emulate_call(self, name_or_start_ea, call_depth: int = 0):
         """
         Defines whether a call to a specific function should be emulated using a combination
         of create_emulated() and hook_call()
 
         :param name_or_start_ea: Name or starting address of the function to emulate all calls to
+        :param call_depth: Number of function calls we are allowed to emulate into.
+            When we hit our limit (depth is 0), emulation will no longer jump into function calls.
+            (Defaults to not emulating into any function calls.)
+            NOTE: This does not affect call hooks.
         """
 
         if isinstance(name_or_start_ea, str):
-            # TODO: Replace this with our ported get_function_addr() function which iterates imports, exports, dynamic function, etc.
-            #    - Or create a utility in dragodis.
-            func = func_utils.from_name(self.disassembler, name_or_start_ea)
-            ea = func.start
+            name = name_or_start_ea
+            # NOTE: Using from_name because we need to be sure there is actual instructions to emulate.
+            func = func_utils.from_name(self.disassembler, name)
+            func_address = func.start
         else:
-            ea = name_or_start_ea
+            func_address = name_or_start_ea
 
-        # TODO: This method causes us to do unnecessarily extraction of function arguments
-        #   since the emulated function will just put them right back in.
-        #   Update the CALL opcode to just call context.execute() directly.
-        func = self.create_emulated(ea)
         def hook(context, func_name, func_args):
-            func(*func_args, context=context)
+            self.execute_function(func_address, call_depth=call_depth, context=context)
 
         self.hook_call(name_or_start_ea, hook)
 
@@ -263,7 +263,7 @@ class Emulator:
         """
         return self._opcode_hooks.get(opcode.lower())
 
-    def execute(self, start: int, end: int = None, *, context: ProcessorContext = None) -> ProcessorContext:
+    def execute(self, start: int, end: int = None, call_depth: int = 0, *, context: ProcessorContext = None) -> ProcessorContext:
         """
         Emulates from start instruction to end instruction (not including the end instruction)
         (Or just emulates the start instruction if end is not provided.)
@@ -276,6 +276,10 @@ class Emulator:
 
         :param start: Address of instruction to start emulation.
         :param end: Address of instruction to stop emulation. (non-inclusive)
+        :param call_depth: Number of function calls we are allowed to emulate into.
+            When we hit our limit (depth is 0), emulation will no longer jump into function calls.
+            (Defaults to not emulating into any function calls.)
+            NOTE: This does not affect call hooks.
         :param context: A premade context that you would like to use to start out emulation.
             In which case, this is just a wrapper for running execute() on the context itself.
 
@@ -284,11 +288,34 @@ class Emulator:
         """
         if not context:
             context = self.new_context()
-
-        context.execute(start=start, end=end, max_instructions=self.max_instructions)
+        context.execute(start=start, end=end, call_depth=call_depth)
         return context
 
-    def _execute_to(self, ea, *, context: ProcessorContext = None) -> ProcessorContext:
+    def execute_function(self, address_or_name: Union[int, str], call_depth: int = 0, *, context: ProcessorContext = None):
+        """
+        Emulates the full function.
+
+        :param address_or_name: An address contained within the function or name of function.
+        :param call_depth: Number of function calls we are allowed to emulate into.
+            When we hit our limit (depth is 0), emulation will no longer jump into function calls.
+            (Defaults to not emulating into any function calls.)
+            NOTE: This does not affect call hooks.
+        :param context: A premade context that you would like to use to start out emulation.
+
+        :returns: A ProcessorContext object after emulation has occurred.
+            If a context was provided in the parameters, this context will be a reference to that.
+
+        :raises NotExistError: If a function doesn't exist at the given address.
+        """
+        if isinstance(address_or_name, str):
+            name = address_or_name
+            func = func_utils.from_name(self.disassembler, name, ignore_underscore=True)
+        else:
+            address = address_or_name
+            func = self.disassembler.get_function(address)
+        return self.execute(start=func.start, end=func.end, call_depth=call_depth, context=context)
+
+    def _execute_to(self, address, *, call_depth: int = 0, context: ProcessorContext = None) -> ProcessorContext:
         """
         Creates a cpu_context (or emulates on top of the given one) for instructions up to, but not
         including, the given ea within the current function.
@@ -298,7 +325,11 @@ class Emulator:
 
         This is an internal function used as a helper for iter_context_at() when following loops.
 
-        :param int ea: ea of interest
+        :param int address: Address of interest
+        :param call_depth: Number of function calls we are allowed to emulate into.
+            When we hit our limit (depth is 0), emulation will no longer jump into function calls.
+            (Defaults to not emulating into any function calls.)
+            NOTE: This does not affect call hooks.
         :param context: ProcessorContext to use during emulation, a new one will be created if not provided.
 
         :raises RuntimeError: If maximum number of instructions have been hit.
@@ -306,11 +337,11 @@ class Emulator:
         if not context:
             context = self.new_context()
 
-        function = self.disassembler.get_function(ea)
+        function = self.disassembler.get_function(address)
         flowchart = function.flowchart
 
         start_block = flowchart.get_block(function.start)
-        end_block = flowchart.get_block(ea)
+        end_block = flowchart.get_block(address)
         valid_blocks = set(end_block.ancestors)
         valid_blocks.add(end_block)
         count = self.max_instructions
@@ -324,7 +355,7 @@ class Emulator:
             # We can't use execute() with start and end here because the end_ea of a block
             # is not actually in the block.
             for line in current_block.lines():
-                context.execute(line.address)
+                context.execute(line.address, call_depth=call_depth)
                 count -= 1
 
             if count <= 0:
@@ -347,12 +378,12 @@ class Emulator:
             current_block = successor
 
         # Emulate the instructions in the final block.
-        context.execute(start=current_block.start, end=ea)
+        context.execute(start=current_block.start, end=address, call_depth=call_depth)
 
         return context
 
     def iter_context_at(
-            self, ea, *, depth=0, exhaustive=True, follow_loops=False, init_context=None, _first_call=True
+            self, address: int, *, depth=0, call_depth: int = 0, exhaustive=True, follow_loops=False, init_context=None, _first_call=True
     ) -> Iterable[ProcessorContext]:
         """
         Iterate over cpu context for instructions up to, but not including, a given ea.
@@ -362,9 +393,13 @@ class Emulator:
         >>> for cpu_context in emu.iter_context_at(0x1001b9ad):
         >>>     print(cpu_context)
 
-        :param int ea: ea of interest
+        :param int address: address of interest
         :param int depth: Number of calls up the stack to pull context from.
             (defaults to 0, meaning emulation will start at the start of the function containing the given address)
+        :param call_depth: Number of function calls we are allowed to emulate into.
+            When we hit our limit (depth is 0), emulation will no longer jump into function calls.
+            (Defaults to not emulating into any function calls.)
+            NOTE: This does not affect call hooks.
         :param bool exhaustive:
             If true, all paths for each call level depth is processed.
             If follow_loops is also true, this will ensure loops are followed at each call level depth.
@@ -396,7 +431,7 @@ class Emulator:
 
         logger.debug(
             f"Emulating call level %d for function at 0x%08X: follow_loops = %r, exhaustive = %r",
-            depth, ea, follow_loops, exhaustive
+            depth, address, follow_loops, exhaustive
         )
 
         # Create a generator for getting the initial contexts at this level.
@@ -409,7 +444,7 @@ class Emulator:
                 yield init_context
                 return
 
-            func = self.disassembler.get_function(ea)
+            func = self.disassembler.get_function(address)
             yielded = False
             for call_ea in func.calls_to:
                 if call_ea in func:
@@ -423,6 +458,7 @@ class Emulator:
                 for context in self.iter_context_at(
                     call_ea,
                     depth=depth - 1,
+                    call_depth=call_depth,
                     exhaustive=exhaustive,
                     follow_loops=follow_loops,
                     init_context=init_context,
@@ -444,25 +480,31 @@ class Emulator:
 
         if follow_loops and (_first_call or exhaustive):
             for context in init_contexts():
-                yield self._execute_to(ea, context=deepcopy(context))
+                yield self._execute_to(address, call_depth=call_depth, context=deepcopy(context))
 
         else:
             for context in init_contexts():
-                flowchart = self.disassembler.get_flowchart(ea)
-                for path in iter_paths(flowchart, ea):
-                    yield path.cpu_context(ea, init_context=deepcopy(context))
+                flowchart = self.disassembler.get_flowchart(address)
+                for path in iter_paths(flowchart, address):
+                    yield path.cpu_context(address, call_depth=call_depth, init_context=deepcopy(context))
 
                     # Don't process other paths if we are at the user call level and exhaustive wasn't chosen.
                     if not _first_call and not exhaustive:
                         break
 
-    def context_at(self, ea, *, depth=0, exhaustive=True, follow_loops=False, init_context=None) -> Optional[ProcessorContext]:
+    def context_at(self, address: int, *, depth=0, call_depth: int = 0, exhaustive=True, follow_loops=False,
+                   init_context=None
+   ) -> Optional[ProcessorContext]:
         """
         Obtain a cpu context for instructions up to, but not including, a given ea.
 
-        :param int ea: ea of interest
+        :param int address: address of interest
         :param int depth: Number of calls up the stack to pull context from.
             (defaults to 0, meaning a empty context will be generated at the top of the current function.)
+        :param call_depth: Number of function calls we are allowed to emulate into.
+            When we hit our limit (depth is 0), emulation will no longer jump into function calls.
+            (Defaults to not emulating into any function calls.)
+            NOTE: This does not affect call hooks.
         :param bool exhaustive:
             If true, all paths for each call level depth is processed.
             If follow_loops is also true, this will ensure loops are followed at each call level depth.
@@ -478,12 +520,12 @@ class Emulator:
 
         :return: cpu_context or None
         """
-        for ctx in self.iter_context_at(ea, depth=depth, exhaustive=exhaustive, follow_loops=follow_loops, init_context=init_context):
+        for ctx in self.iter_context_at(
+                address, depth=depth, call_depth=call_depth, exhaustive=exhaustive, follow_loops=follow_loops,
+                init_context=init_context):
             return ctx
 
-    def iter_operand_value(
-            self, ea, index, *, depth=0, exhaustive=True, follow_loops=False, init_context=None
-    ) -> Iterable[Tuple[ProcessorContext, int]]:
+    def iter_operand_value(self, address: int, index: int, **kwargs) -> Iterable[Tuple[ProcessorContext, int]]:
         """
         Trace the function to the specified ea and yield all possible values for the operand.
         This is a helper wrapper for extracting the context and then retrieving either
@@ -493,22 +535,15 @@ class Emulator:
         >>> for ctx, val in emu.iter_operand_value(0x1001b9ad, 0):
         >>>     print(f"Val for opnd0 at 0x1001b9ad = 0x{val:x}")
 
-        :param int ea: address to trace to
+        :param int address: address to trace to
         :param int index: the operand of interest (0 - first operand, 1 - second operand, ...)
-        :param int depth: Number of calls up the stack to pull context from.
-            (defaults to 0, meaning a empty context will be generate at the top of the current function.)
-        :param bool exhaustive: If true, all paths for each depth is processed
-            if false, only the first path for each depth is processed.
-            (defaults to exhaustive)
-        :param init_context: Initial context to use to start emulation.
 
         :yield tuple: (context at ea, operand value)
         """
         values = set()
 
         # Iterate all the nodes to obtain the CPU context
-        for cpu_context in self.iter_context_at(
-                ea, depth=depth, exhaustive=exhaustive, follow_loops=follow_loops, init_context=init_context):
+        for cpu_context in self.iter_context_at(address, **kwargs):
             operand = cpu_context.operands[index]
             # Pass memory address if there is one, otherwise pass the value.
             value = operand.addr or operand.value
@@ -519,9 +554,7 @@ class Emulator:
             values.add(value)
             yield cpu_context, value
 
-    def get_operand_value(
-            self, ea, index, *, depth=0, follow_loops=False, init_context=None
-    ) -> Optional[Tuple[ProcessorContext, int]]:
+    def get_operand_value(self, address: int, index: int, **kwargs) -> Optional[Tuple[ProcessorContext, int]]:
         """
         Trace the function to the specified ea and return the value for the specified operand.
         This is a helper wrapper for extracting the context and then retrieving either
@@ -530,21 +563,17 @@ class Emulator:
         NOTE: We are using "get_operand_value" to help show this is the equivalent to
         idc.get_operand_value() but pulls from emulated data.
 
-        >>> val = Emulator().get_operand_value(0x1001b9ad, 0)
-        >>> print(f"Val for opnd0 at 0x1001b9ad = 0x{val:x}")
-
-        :param int ea: address to trace to
-        :param int opnd: the operand of interest (0 - first operand, 1 - second operand, ...)
-        :param int depth: Number of calls up the stack to pull context from.
-            (defaults to 0, meaning a empty context will be generate at the top of the current function.)
+        :param int address: address to trace to
+        :param int index: the operand of interest (0 - first operand, 1 - second operand, ...)
 
         :returns tuple: (context at ea, operand value)
         """
-        for cpu_context, value in self.iter_operand_value(ea, index, depth=depth, follow_loops=follow_loops, init_context=init_context):
+        for cpu_context, value in self.iter_operand_value(address, index, **kwargs):
             return cpu_context, value
 
     def iter_function_args(
-            self, ea, *, depth=0, exhaustive=True, num_args=None, follow_loops=False, init_context=None
+            self, address: int, *, depth=0, call_depth: int = 0, exhaustive=True, num_args=None, follow_loops=False,
+            init_context=None
     ) -> Iterable[Tuple[ProcessorContext, List[FunctionArgument]]]:
         """
         Given the EA of a function call, attempt to determine the number of arguments passed to the function and
@@ -555,12 +584,26 @@ class Emulator:
         >>> for context, args in emu.iter_function_args(call_addr):
         >>>     print("Args for call at 0x{:X}: {}".format(call_addr, ", ".join(args)))
 
-        :param int ea: address containing the function call of interest
+        :param int address: address containing the function call of interest
         :param int depth: Number of calls up the stack to pull context from.
-            (defaults to 0, meaning a empty context will be generate at the top of the current function.)
-        :param bool exhaustive: If true, all paths for each depth is processed
-            if false, only the first path for each depth is processed.
-            (defaults to exhaustive)
+            (defaults to 0, meaning emulation will start at the start of the function containing the given address)
+        :param call_depth: Number of function calls we are allowed to emulate into.
+            When we hit our limit (depth is 0), emulation will no longer jump into function calls.
+            (Defaults to not emulating into any function calls.)
+            NOTE: This does not affect call hooks.
+        :param bool exhaustive:
+            If true, all paths for each call level depth is processed.
+            If follow_loops is also true, this will ensure loops are followed at each call level depth.
+            If false, only the first path for each depth is processed.
+            If follow_loops is also true, loops will only be followed for the first call level.
+                All other levels will use the non-follow_loops method.
+        :param follow_loops:
+            If true, loops will be followed during emulation and only one possible
+            path will be emulated per call level.
+            If false, emulation will be forced down a specific path of flowchart blocks in order
+            to get to the given ea address.
+        :param init_context: Initial context to use to start emulation.
+            NOTE: The yielded context will be a copy of the passed in context with emulation applied.
         :param int num_args: Force a specific number of arguments.
             If not provided, number of arguments is determined by the disassembler.
             Extra arguments not defined by the disassembler are assumed to be 'int' type.
@@ -569,23 +612,42 @@ class Emulator:
         """
         # Iterate all the paths leading up to ea
         for cpu_context in self.iter_context_at(
-                ea, depth=depth, exhaustive=exhaustive, follow_loops=follow_loops, init_context=init_context):
+                address,
+                depth=depth,
+                call_depth=call_depth,
+                exhaustive=exhaustive,
+                follow_loops=follow_loops,
+                init_context=init_context
+        ):
             yield cpu_context, cpu_context.get_function_args(num_args=num_args)
 
     def get_function_args(
-            self, ea, *, depth=0, num_args=None, follow_loops=False, init_context=None
+            self, address: int, *, depth=0, call_depth: int = 0, num_args=None, exhaustive=True,
+            follow_loops=False, init_context=None
     ) -> Optional[Tuple[ProcessorContext, List[FunctionArgument]]]:
         """
         Simply calls iter_function_args with the provided ea and returns the first set of arguments.
 
-        >>> emu = Emulator()
-        >>> call_addr = 0x1001b9d0
-        >>> context, args = emu.get_function_args(call_addr):
-        >>> print(f"Args for call at 0x{call_addr:X}: {', '.join(args)}")
-
-        :param int ea: address containing the function call of interest
+        :param int address: address containing the function call of interest
         :param int depth: Number of calls up the stack to pull context from.
-            (defaults to 0, meaning a empty context will be generate at the top of the current function.)
+            (defaults to 0, meaning emulation will start at the start of the function containing the given address)
+        :param call_depth: Number of function calls we are allowed to emulate into.
+            When we hit our limit (depth is 0), emulation will no longer jump into function calls.
+            (Defaults to not emulating into any function calls.)
+            NOTE: This does not affect call hooks.
+        :param bool exhaustive:
+            If true, all paths for each call level depth is processed.
+            If follow_loops is also true, this will ensure loops are followed at each call level depth.
+            If false, only the first path for each depth is processed.
+            If follow_loops is also true, loops will only be followed for the first call level.
+                All other levels will use the non-follow_loops method.
+        :param follow_loops:
+            If true, loops will be followed during emulation and only one possible
+            path will be emulated per call level.
+            If false, emulation will be forced down a specific path of flowchart blocks in order
+            to get to the given ea address.
+        :param init_context: Initial context to use to start emulation.
+            NOTE: The yielded context will be a copy of the passed in context with emulation applied.
         :param int num_args: Force a specific number of arguments.
             If not provided, number of arguments is determined by the disassembler.
             Extra arguments not defined by the disassembler are assumed to be 'int' type.
@@ -593,7 +655,15 @@ class Emulator:
         :return tuple: (context at ea, list of function parameters passed to called function in order)
         :rtype: Tuple[ProcessorContext, List]
         """
-        for cpu_context, args in self.iter_function_args(ea, depth=depth, num_args=num_args, follow_loops=follow_loops, init_context=init_context):
+        for cpu_context, args in self.iter_function_args(
+                address,
+                depth=depth,
+                call_depth=call_depth,
+                num_args=num_args,
+                exhaustive=exhaustive,
+                follow_loops=follow_loops,
+                init_context=init_context
+        ):
             return cpu_context, args
 
     def create_emulated(self, func_ea, return_type=None, return_size=None, enforce_args=False) -> Callable:
@@ -660,7 +730,7 @@ class Emulator:
                 else:
                     raise TypeError(f'Invalid arg type {type(arg)}')
 
-            context.execute(func_obj.start, end=func_obj.end, max_instructions=self.max_instructions)
+            context.execute(func_obj.start, end=func_obj.end)
 
             if return_type is not None or return_size is not None:
                 result = context.memory.read_data(context.ret, size=return_size, data_type=return_type)

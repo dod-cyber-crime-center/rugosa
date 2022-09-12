@@ -2,6 +2,10 @@
 Interface for memory management.
 """
 from __future__ import annotations
+
+import contextlib
+import io
+import os
 from typing import TYPE_CHECKING, Tuple, List, Optional, Iterable, Union
 import warnings
 
@@ -23,6 +27,80 @@ logger = logging.getLogger(__name__)
 # TODO: Update Memory object to use the dragodis's Memory object.
 #   - Will need to update it to be able to handle a mixture of initialized and uninitialized bytes.
 #   - Also update Dragodis's get_byte() and get_bytes() functions to use the Memory object?
+
+
+class Stream(io.RawIOBase):
+    """
+    Creates a read-only file-like stream of the emulated memory.
+    """
+
+    def __init__(self, memory: Memory, start: int):
+        self._memory = memory
+        self._start = start
+        self._offset = 0
+        # Figure out which block we are in and use the end of the block as end.
+        for base_address, size in memory.blocks:
+            if start in range(base_address, base_address + size):
+                self._end = size
+                break
+        else:
+            raise RuntimeError(f"Failed to determine end address.")
+
+    def readable(self) -> bool:
+        return True
+
+    def writeable(self) -> bool:
+        return True
+
+    def seekable(self) -> bool:
+        return True
+
+    def read(self, size: int = -1) -> bytes:
+        if size == -1:
+            return self.readall()
+        size = min(self._end - self._offset, size)
+        if size <= 0:
+            return b""
+        address = self.tell_address()
+        data = self._memory.read(address, size)
+        self._offset += len(data)
+        return data
+
+    def readline(self, size: int = 1) -> bytes:
+        address = self.tell_address()
+        end = self._memory.find(b"\n", start=address)
+        if end == -1:
+            return b""
+        return self.read(end - address)
+
+    def readall(self) -> bytes:
+        return self.read(self._end - self._offset)
+
+    def write(self, data: bytes) -> int:
+        address = self.tell_address()
+        num_bytes = self._memory.write(address, data)
+        self._offset += num_bytes
+        return num_bytes
+
+    def tell(self) -> int:
+        return self._offset
+
+    def tell_address(self) -> int:
+        return self._start + self._offset
+
+    def seek(self, offset: int, whence=os.SEEK_SET) -> int:
+        if whence == os.SEEK_SET:
+            if offset < 0:
+                raise ValueError(f"Offset must be positive.")
+            self._offset = offset
+        elif whence == os.SEEK_CUR:
+            self._offset = max(0, self._offset + offset)
+        elif whence == os.SEEK_END:
+            self._offset = min(self._end, self._end + offset)
+        return self._offset
+
+    def seek_address(self, address: int) -> int:
+        return self.seek(address - self._start)
 
 
 class PageMap(collections.defaultdict):
@@ -84,8 +162,9 @@ class PageMap(collections.defaultdict):
     def map_segments(self):
         """Sets segment pages for delayed retrieval"""
         for segment in self._dis.segments:
-            for page_index in range(segment.start >> 12, ((segment.end - 1) >> 12) + 1):
-                self[page_index] = None
+            if segment.initialized:
+                for page_index in range(segment.start >> 12, ((segment.end - 1) >> 12) + 1):
+                    self[page_index] = None
 
     def _new_page(self, page_index: int) -> bytearray:
         """
@@ -175,6 +254,19 @@ class Memory:
         copy._heap_allocations = self._heap_allocations.copy()
 
         return copy
+
+    def open(self, start: int = None) -> Stream:
+        """
+        Opens memory as a file-like stream.
+
+        :param start: Starting address for the window of data. (defaults to the address of the first allocated block)
+        """
+        if start is None:
+            blocks = self.blocks
+            if not blocks:
+                raise ValueError("No memory blocks have been allocated.")
+            start, _ = blocks[0]
+        return Stream(self, start)
 
     @property
     def blocks(self) -> List[Tuple[int, int]]:
@@ -339,12 +431,13 @@ class Memory:
         # logger.debug("Read: %r", out[:100])  # Enable this when debugging.
         return out
 
-    def write(self, address: int, data: bytes):
+    def write(self, address: int, data: bytes) -> int:
         """
         Writes data to given address.
 
         :param address: Address to write data to.
         :param data: data to write
+        :returns: Number of bytes written.
 
         :raises ValueError: If given address is negative.
         :raises TypeError: If given data type is invalid.
@@ -360,8 +453,9 @@ class Memory:
                 size, address, self.MAX_MEM_WRITE
             )
             data = data[: self.MAX_MEM_WRITE]
+        size = len(data)
 
-        logger.debug("Writing %d bytes to 0x%08X", len(data), address)
+        logger.debug("Writing %d bytes to 0x%08X", size, address)
         # logger.debug("Writing: %r", data[:100])   # Enable this when debugging.
 
         page_index = address >> 12
@@ -379,6 +473,8 @@ class Memory:
             data = data[split_index:]
             page_offset = 0
             page_index += 1
+
+        return size
 
     def read_data(self, addr: int, size: int = None, data_type=None) -> Union[bytes, int]:
         """

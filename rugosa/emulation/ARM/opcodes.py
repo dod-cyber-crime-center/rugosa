@@ -112,7 +112,7 @@ def BL(cpu_context: ProcessorContext, instruction: Instruction):
     cpu_context.ip = operands[0].value
 
     if operands[0].is_func_ptr:
-        instruction.execute_call_hooks(func_name, func_ea)
+        cpu_context._execute_call(func_ea, func_name, instruction.ip)
 
     # Restore instruction pointer to return address.
     cpu_context.ip = cpu_context.registers.lr

@@ -3,6 +3,7 @@ Interface for instruction management.
 """
 import logging
 
+from dragodis import BACKEND_GHIDRA
 from dragodis.interface.instruction import ARMConditionCode
 
 from .operands import ARMOperand
@@ -96,7 +97,7 @@ class ARMInstruction(Instruction):
                 # This messes with our ability to update the writeback.
                 # In the opcode hook we divert to a push/pop hook, but also need to be sure
                 # we don't attempt the writeback here.
-                if self._cpu_context.emulator.disassembler.name == "Ghidra" and operand.text.startswith("sp!,"):
+                if self._cpu_context.emulator.disassembler.name == BACKEND_GHIDRA and operand.text.startswith("sp!,"):
                     return
             else:
                 # write back for last operand (! postfix or post-indexed operand)
@@ -104,4 +105,3 @@ class ARMInstruction(Instruction):
 
             logger.debug("Writeback operation for: %s", operand.text)
             operand.base += operand.offset
-
