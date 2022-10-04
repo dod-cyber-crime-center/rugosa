@@ -83,6 +83,11 @@ class PathNode:
 
         _visited.remove(block.start)
 
+    def __bool__(self) -> bool:
+        # Implementing this to prevent Python from trying to use __len__() to test truthiness.
+        # This avoids wasting time recursively checking the truthiness of self.prev
+        return bool(self.block)
+
     def __len__(self):
         return 1 + (len(self.prev) if self.prev else 0)
 
@@ -130,6 +135,7 @@ class PathNode:
 
         :return cpu_context.ProcessorContext: cpu context
         """
+        logger.debug("Getting context for block starting at: 0x%08X", self.block.start)
         if addr is not None and addr not in self.block:
             raise KeyError(
                 f"Provided address 0x{addr:X} not in this block "

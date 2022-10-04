@@ -252,6 +252,7 @@ class Memory:
         copy._cpu_context = deepcopy(self._cpu_context, memo)
         copy._pages = deepcopy(self._pages, memo)
         copy._heap_allocations = self._heap_allocations.copy()
+        copy._heap_base = self._heap_base
 
         return copy
 

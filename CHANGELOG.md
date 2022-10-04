@@ -2,6 +2,11 @@
 All notable changes to this project will be documented in this file.
 
 
+## [Unreleased]
+- Fixed performance issue during emulation.
+- Fixed missing `_heap_base` error when allocating memory.
+
+
 ## [0.5.0] - 2022-09-15
 - Added ability to emulate functions calls. (See [documentation](./docs/CPUEmulation.md#emulating-function-calls))
 - Added ability to execute full functions with `Emulator.execute_function()`.
