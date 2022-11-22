@@ -1469,9 +1469,10 @@ def ROL(cpu_context: ProcessorContext, instruction: Instruction):
         return
 
     if tempcount > 0:
+        mask = utils.get_mask(width)
         while tempcount:
-            tempcf = get_msb(opvalue1, width)
-            opvalue1 = (opvalue1 * 2) + tempcf
+            opvalue1 = (opvalue1 * 2) + get_msb(opvalue1, width)
+            opvalue1 &= mask
             tempcount -= 1
 
         cpu_context.registers.cf = get_lsb(opvalue1)
@@ -1533,9 +1534,11 @@ def sal_shl(cpu_context: ProcessorContext, instruction: Instruction):
     if opvalue2:
         # 0x3F Because we want to allow for 64-bit code
         tempcount = opvalue2 & (0x3F if cpu_context.bitness == 64 else 0x1F)
+        mask = utils.get_mask(width)
         while tempcount:
             cpu_context.registers.cf = get_msb(result, width)
             result *= 2
+            result &= mask
             tempcount -= 1
 
         result &= utils.get_mask(width)
@@ -2093,12 +2096,15 @@ def get_msb(value, size):
     Get most significant bit.
 
     :param value: value to obtain msb from
-
-    :size: bit width of value in bytes
+    :param size: bit width of value in bytes
 
     :return: most significant bit
+    :raises AssertionError: value is larger than given size.
     """
-    return value >> ((8 * size) - 1)
+    msb = value >> ((8 * size) - 1)
+    if msb > 1:
+        raise AssertionError(f"Got invalid size {size} for value 0x{value:x}")
+    return msb
 
 
 def get_lsb(value):

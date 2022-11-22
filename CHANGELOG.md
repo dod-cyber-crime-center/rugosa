@@ -1,8 +1,9 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.6.0] - 2022-12-02
 - Support all instruction operands, both implied and explicit.
+- Fix bug in ROL opcode implementation.
 - Added `.function_arg_values` property to ProcessorContext.
 - Added `.get_function_arg_values()` convenience function to Emulator.
 - Updated `ProcessorContext.call_history` to also include the argument names.
@@ -69,7 +70,8 @@ All notable changes to this project will be documented in this file.
 - Migrated the majority of Kordesii functionality to work with Dragodis.
 
 
-[Unreleased]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.5.1...HEAD
+[Unreleased]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.6.0...HEAD
+[0.6.0]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.5.1...0.6.0
 [0.5.1]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.5.0...0.5.1
 [0.5.0]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.4.0...0.5.0
 [0.4.0]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.3.0...0.4.0

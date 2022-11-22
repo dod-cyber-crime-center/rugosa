@@ -575,7 +575,7 @@ class ProcessorContext:
     @property
     def function_arg_values(self) -> List[int]:
         """
-        The function argument values currently set based on teh function in the first operand of the current instruction.
+        The function argument values currently set based on the function in the first operand of the current instruction.
         """
         return self.get_function_arg_values()
 
