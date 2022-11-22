@@ -1,0 +1,518 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<form xmlns="http://www.intellij.com/uidesigner/form/" version="1" bind-to-class="dc3.rugosa.plugin.EmulatorForm">
+  <grid id="27dc6" binding="mainPanel" layout-manager="BorderLayout" hgap="0" vgap="0">
+    <constraints>
+      <xy x="20" y="20" width="851" height="669"/>
+    </constraints>
+    <properties/>
+    <border type="none"/>
+    <children>
+      <grid id="87b4" layout-manager="BorderLayout" hgap="0" vgap="0">
+        <constraints border-constraint="North"/>
+        <properties/>
+        <border type="none"/>
+        <children>
+          <grid id="30c89" layout-manager="FlowLayout" hgap="5" vgap="5" flow-align="1">
+            <constraints border-constraint="Center"/>
+            <properties/>
+            <border type="none"/>
+            <children>
+              <component id="964c" class="javax.swing.JButton" binding="runButton">
+                <constraints/>
+                <properties>
+                  <text value="Run"/>
+                  <toolTipText value="Emulate up to the current highlighted instruction"/>
+                </properties>
+              </component>
+              <component id="b8557" class="javax.swing.JButton" binding="stepOverButton">
+                <constraints/>
+                <properties>
+                  <enabled value="false"/>
+                  <text value="Step Over"/>
+                  <toolTipText value="Emulate the next instruction"/>
+                </properties>
+              </component>
+              <component id="1b1b" class="javax.swing.JButton" binding="stepIntoButton">
+                <constraints/>
+                <properties>
+                  <enabled value="false"/>
+                  <text value="Step Into"/>
+                  <toolTipText value="Not Supported Yet"/>
+                </properties>
+              </component>
+              <component id="c440f" class="javax.swing.JButton" binding="stepOutButton">
+                <constraints/>
+                <properties>
+                  <enabled value="false"/>
+                  <text value="Step Out"/>
+                  <toolTipText value="Not Supported Yet"/>
+                </properties>
+              </component>
+            </children>
+          </grid>
+          <grid id="ba2a5" layout-manager="BorderLayout" hgap="0" vgap="0">
+            <constraints border-constraint="North"/>
+            <properties/>
+            <border type="none"/>
+            <children>
+              <grid id="71893" layout-manager="FlowLayout" hgap="5" vgap="5" flow-align="1">
+                <constraints border-constraint="West"/>
+                <properties/>
+                <border type="none"/>
+                <children>
+                  <component id="4d95c" class="javax.swing.JLabel">
+                    <constraints/>
+                    <properties>
+                      <labelFor value="e63c"/>
+                      <text value="Trace Depth"/>
+                      <toolTipText value="Number of levels of parent callers to emulate"/>
+                    </properties>
+                  </component>
+                  <component id="e63c" class="javax.swing.JSpinner" binding="traceDepth" custom-create="true">
+                    <constraints/>
+                    <properties>
+                      <toolTipText value="Number of levels of parent callers to emulate"/>
+                    </properties>
+                  </component>
+                  <component id="396d0" class="javax.swing.JLabel">
+                    <constraints/>
+                    <properties>
+                      <labelFor value="a6b00"/>
+                      <text value="Call Depth"/>
+                      <toolTipText value="Number of call levels deep to emulate"/>
+                    </properties>
+                  </component>
+                  <component id="a6b00" class="javax.swing.JSpinner" binding="callDepth" custom-create="true">
+                    <constraints/>
+                    <properties>
+                      <toolTipText value="Number of call levels deep to emulate"/>
+                    </properties>
+                  </component>
+                </children>
+              </grid>
+              <grid id="c8867" layout-manager="FlowLayout" hgap="5" vgap="5" flow-align="1">
+                <constraints border-constraint="East"/>
+                <properties/>
+                <border type="none"/>
+                <children>
+                  <component id="27198" class="docking.widgets.checkbox.GCheckBox" binding="exhaustiveCheckBox">
+                    <constraints/>
+                    <properties>
+                      <text value="Exhaustive"/>
+                      <toolTipText value="Whether to also follow loops for parent callers"/>
+                    </properties>
+                    <clientProperties>
+                      <html.disable class="java.lang.Boolean" value="true"/>
+                    </clientProperties>
+                  </component>
+                  <component id="c6991" class="docking.widgets.checkbox.GCheckBox" binding="followLoopsCheckBox">
+                    <constraints/>
+                    <properties>
+                      <text value="Follow Loops"/>
+                      <toolTipText value="Whether to emulate loops instead of forcing a downward path"/>
+                    </properties>
+                    <clientProperties>
+                      <html.disable class="java.lang.Boolean" value="true"/>
+                    </clientProperties>
+                  </component>
+                </children>
+              </grid>
+            </children>
+          </grid>
+          <component id="1c39d" class="javax.swing.JLabel" binding="instruction">
+            <constraints border-constraint="South"/>
+            <properties>
+              <text value="&lt;instruction&gt;"/>
+              <toolTipText value="Current instruction emulated up to."/>
+            </properties>
+          </component>
+        </children>
+      </grid>
+      <component id="2047c" class="javax.swing.JLabel" binding="status">
+        <constraints border-constraint="South"/>
+        <properties>
+          <text value="&lt;status&gt;"/>
+        </properties>
+      </component>
+      <tabbedpane id="afdd7" class="dc3.rugosa.plugin.RugosaTabbedPane" binding="tabs" custom-create="true">
+        <constraints border-constraint="Center"/>
+        <properties>
+          <tabLayoutPolicy value="1"/>
+        </properties>
+        <border type="none"/>
+        <children>
+          <grid id="6471b" binding="operandsTab" layout-manager="BorderLayout" hgap="0" vgap="0">
+            <constraints>
+              <tabbedpane title="Operands"/>
+            </constraints>
+            <properties>
+              <toolTipText value="Contents of the operands of the current instruction"/>
+            </properties>
+            <border type="none"/>
+            <children>
+              <scrollpane id="4ac3e">
+                <constraints border-constraint="Center"/>
+                <properties/>
+                <border type="none"/>
+                <children>
+                  <component id="47d22" class="docking.widgets.table.GTable" binding="operandsTable">
+                    <constraints/>
+                    <properties>
+                      <autoCreateRowSorter value="true"/>
+                      <autoResizeMode value="4"/>
+                    </properties>
+                    <clientProperties>
+                      <JTable.autoStartsEdit class="java.lang.Boolean" value="false"/>
+                    </clientProperties>
+                  </component>
+                </children>
+              </scrollpane>
+            </children>
+          </grid>
+          <grid id="73363" binding="registersTab" layout-manager="BorderLayout" hgap="0" vgap="0">
+            <constraints>
+              <tabbedpane title="Registers"/>
+            </constraints>
+            <properties>
+              <toolTipText value="Content of the registers"/>
+            </properties>
+            <border type="none"/>
+            <children>
+              <scrollpane id="c4a51">
+                <constraints border-constraint="Center"/>
+                <properties/>
+                <border type="none"/>
+                <children>
+                  <component id="3bf16" class="docking.widgets.table.GTable" binding="registersTable">
+                    <constraints/>
+                    <properties>
+                      <autoCreateRowSorter value="true"/>
+                      <autoResizeMode value="4"/>
+                    </properties>
+                    <clientProperties>
+                      <JTable.autoStartsEdit class="java.lang.Boolean" value="false"/>
+                    </clientProperties>
+                  </component>
+                </children>
+              </scrollpane>
+            </children>
+          </grid>
+          <grid id="911fb" binding="memoryTab" layout-manager="BorderLayout" hgap="0" vgap="0">
+            <constraints>
+              <tabbedpane title="Memory"/>
+            </constraints>
+            <properties>
+              <toolTipText value="Contents of memory"/>
+            </properties>
+            <border type="none"/>
+            <children>
+              <grid id="92b61" layout-manager="BorderLayout" hgap="0" vgap="0">
+                <constraints border-constraint="North"/>
+                <properties/>
+                <border type="none"/>
+                <children>
+                  <grid id="cb058" layout-manager="FlowLayout" hgap="5" vgap="5" flow-align="1">
+                    <constraints border-constraint="West"/>
+                    <properties/>
+                    <border type="none"/>
+                    <children>
+                      <component id="78f3a" class="javax.swing.JLabel">
+                        <constraints/>
+                        <properties>
+                          <labelFor value="d0522"/>
+                          <text value="Start Address"/>
+                        </properties>
+                      </component>
+                      <component id="d0522" class="javax.swing.JTextField" binding="memoryStart">
+                        <constraints/>
+                        <properties>
+                          <preferredSize width="100" height="30"/>
+                          <text value="0x401000"/>
+                        </properties>
+                      </component>
+                      <component id="7a968" class="javax.swing.JLabel">
+                        <constraints/>
+                        <properties>
+                          <labelFor value="6750e"/>
+                          <text value="Size"/>
+                        </properties>
+                      </component>
+                      <component id="6750e" class="javax.swing.JSpinner" binding="memorySize" custom-create="true">
+                        <constraints/>
+                        <properties>
+                          <preferredSize width="90" height="30"/>
+                        </properties>
+                      </component>
+                      <component id="811c0" class="javax.swing.JButton" binding="memoryLoadButton">
+                        <constraints/>
+                        <properties>
+                          <text value="Load"/>
+                        </properties>
+                      </component>
+                    </children>
+                  </grid>
+                  <grid id="aa82b" layout-manager="FlowLayout" hgap="5" vgap="5" flow-align="1">
+                    <constraints border-constraint="East"/>
+                    <properties/>
+                    <border type="none"/>
+                    <children>
+                      <component id="b5550" class="javax.swing.JButton" binding="memoryExportButton">
+                        <constraints/>
+                        <properties>
+                          <text value="Export"/>
+                        </properties>
+                      </component>
+                    </children>
+                  </grid>
+                </children>
+              </grid>
+              <scrollpane id="fc27d" class="docking.widgets.ScrollableTextArea" binding="memoryHexDump" custom-create="true">
+                <constraints border-constraint="Center"/>
+                <properties/>
+                <border type="none"/>
+                <children/>
+              </scrollpane>
+              <scrollpane id="2b1a0">
+                <constraints border-constraint="South"/>
+                <properties>
+                  <preferredSize width="453" height="100"/>
+                </properties>
+                <border type="none"/>
+                <children>
+                  <component id="ac979" class="docking.widgets.table.GTable" binding="memoryBlocksTable">
+                    <constraints/>
+                    <properties>
+                      <autoCreateRowSorter value="true"/>
+                      <autoResizeMode value="4"/>
+                      <toolTipText value="Currently mapped memory blocks"/>
+                    </properties>
+                    <clientProperties>
+                      <JTable.autoStartsEdit class="java.lang.Boolean" value="false"/>
+                    </clientProperties>
+                  </component>
+                </children>
+              </scrollpane>
+            </children>
+          </grid>
+          <grid id="5a0af" binding="variablesTab" layout-manager="BorderLayout" hgap="0" vgap="0">
+            <constraints>
+              <tabbedpane title="Variables"/>
+            </constraints>
+            <properties>
+              <toolTipText value="Contents of labeled data"/>
+            </properties>
+            <border type="none"/>
+            <children>
+              <scrollpane id="4bc2d">
+                <constraints border-constraint="Center"/>
+                <properties/>
+                <border type="none"/>
+                <children>
+                  <component id="cf51" class="docking.widgets.table.GTable" binding="variablesTable">
+                    <constraints/>
+                    <properties>
+                      <autoCreateRowSorter value="true"/>
+                      <autoResizeMode value="4"/>
+                    </properties>
+                    <clientProperties>
+                      <JTable.autoStartsEdit class="java.lang.Boolean" value="false"/>
+                    </clientProperties>
+                  </component>
+                </children>
+              </scrollpane>
+            </children>
+          </grid>
+          <grid id="4bfc4" binding="functionArgumentsTab" layout-manager="BorderLayout" hgap="0" vgap="0">
+            <constraints>
+              <tabbedpane title="Function Arguments"/>
+            </constraints>
+            <properties>
+              <toolTipText value="Contents of arguments if current instruction is a function call"/>
+            </properties>
+            <border type="none"/>
+            <children>
+              <grid id="cb073" layout-manager="BorderLayout" hgap="0" vgap="0">
+                <constraints border-constraint="North"/>
+                <properties/>
+                <border type="none"/>
+                <children>
+                  <grid id="6edb8" layout-manager="BorderLayout" hgap="0" vgap="0">
+                    <constraints border-constraint="West"/>
+                    <properties/>
+                    <border type="none"/>
+                    <children>
+                      <component id="fa31a" class="javax.swing.JLabel" binding="functionSignature">
+                        <constraints border-constraint="Center"/>
+                        <properties>
+                          <text value="&lt;function signature&gt;"/>
+                          <toolTipText value="Function signature of called function"/>
+                        </properties>
+                      </component>
+                    </children>
+                  </grid>
+                  <grid id="8836c" layout-manager="FlowLayout" hgap="5" vgap="5" flow-align="1">
+                    <constraints border-constraint="East"/>
+                    <properties/>
+                    <border type="none"/>
+                    <children>
+                      <component id="626ce" class="javax.swing.JLabel">
+                        <constraints/>
+                        <properties>
+                          <labelFor value="78b1"/>
+                          <text value="Number of Arguments"/>
+                          <toolTipText value="Adjust the number of arguments for the function call"/>
+                        </properties>
+                      </component>
+                      <component id="78b1" class="javax.swing.JSpinner" binding="numArgs" custom-create="true">
+                        <constraints/>
+                        <properties>
+                          <toolTipText value="Adjust the number of arguments for the function call"/>
+                        </properties>
+                      </component>
+                    </children>
+                  </grid>
+                </children>
+              </grid>
+              <scrollpane id="f2514">
+                <constraints border-constraint="Center"/>
+                <properties/>
+                <border type="none"/>
+                <children>
+                  <component id="24f2c" class="docking.widgets.table.GTable" binding="functionArgumentsTable">
+                    <constraints/>
+                    <properties>
+                      <autoCreateRowSorter value="true"/>
+                      <autoResizeMode value="4"/>
+                    </properties>
+                    <clientProperties>
+                      <JTable.autoStartsEdit class="java.lang.Boolean" value="false"/>
+                    </clientProperties>
+                  </component>
+                </children>
+              </scrollpane>
+            </children>
+          </grid>
+          <grid id="aaecd" binding="callHistoryTab" layout-manager="BorderLayout" hgap="0" vgap="0">
+            <constraints>
+              <tabbedpane title="Call History"/>
+            </constraints>
+            <properties>
+              <toolTipText value="Function calls observed during emulation"/>
+            </properties>
+            <border type="none"/>
+            <children>
+              <scrollpane id="efe93">
+                <constraints border-constraint="Center"/>
+                <properties/>
+                <border type="none"/>
+                <children>
+                  <component id="aeeea" class="docking.widgets.table.GTable" binding="callHistoryTable">
+                    <constraints/>
+                    <properties>
+                      <autoCreateRowSorter value="true"/>
+                      <autoResizeMode value="4"/>
+                    </properties>
+                    <clientProperties>
+                      <JTable.autoStartsEdit class="java.lang.Boolean" value="false"/>
+                    </clientProperties>
+                  </component>
+                </children>
+              </scrollpane>
+            </children>
+          </grid>
+          <grid id="3c7db" binding="actionsTab" layout-manager="BorderLayout" hgap="0" vgap="0">
+            <constraints>
+              <tabbedpane title="Actions"/>
+            </constraints>
+            <properties>
+              <toolTipText value="Interesting actions observed during emulation"/>
+            </properties>
+            <border type="none"/>
+            <children>
+              <grid id="8c8e9" layout-manager="BorderLayout" hgap="0" vgap="0">
+                <constraints border-constraint="Center"/>
+                <properties/>
+                <border type="none"/>
+                <children>
+                  <scrollpane id="480cc">
+                    <constraints border-constraint="Center"/>
+                    <properties/>
+                    <border type="none"/>
+                    <children>
+                      <component id="ea231" class="docking.widgets.table.GTable" binding="actionsFieldsTable">
+                        <constraints/>
+                        <properties>
+                          <autoCreateRowSorter value="true"/>
+                          <autoResizeMode value="4"/>
+                        </properties>
+                        <clientProperties>
+                          <JTable.autoStartsEdit class="java.lang.Boolean" value="false"/>
+                        </clientProperties>
+                      </component>
+                    </children>
+                  </scrollpane>
+                  <scrollpane id="cd102">
+                    <constraints border-constraint="West"/>
+                    <properties>
+                      <preferredSize width="250" height="428"/>
+                    </properties>
+                    <border type="none"/>
+                    <children>
+                      <component id="e17d" class="docking.widgets.table.GTable" binding="actionsSideTable">
+                        <constraints/>
+                        <properties>
+                          <autoCreateRowSorter value="true"/>
+                          <autoResizeMode value="4"/>
+                        </properties>
+                        <clientProperties>
+                          <JTable.autoStartsEdit class="java.lang.Boolean" value="false"/>
+                        </clientProperties>
+                      </component>
+                    </children>
+                  </scrollpane>
+                </children>
+              </grid>
+            </children>
+          </grid>
+          <grid id="49a1b" binding="stdoutTab" layout-manager="BorderLayout" hgap="0" vgap="0">
+            <constraints>
+              <tabbedpane title="Stdout"/>
+            </constraints>
+            <properties>
+              <toolTipText value="Current contents of the stdout stream"/>
+            </properties>
+            <border type="none"/>
+            <children>
+              <scrollpane id="4ffc5" class="docking.widgets.ScrollableTextArea" binding="stdoutTextDump" custom-create="true">
+                <constraints border-constraint="Center"/>
+                <properties/>
+                <border type="none"/>
+                <children/>
+              </scrollpane>
+              <grid id="c0c93" layout-manager="BorderLayout" hgap="0" vgap="0">
+                <constraints border-constraint="North"/>
+                <properties/>
+                <border type="none"/>
+                <children>
+                  <grid id="b39c8" layout-manager="FlowLayout" hgap="5" vgap="5" flow-align="1">
+                    <constraints border-constraint="East"/>
+                    <properties/>
+                    <border type="none"/>
+                    <children>
+                      <component id="b45db" class="javax.swing.JButton" binding="stdoutExportButton">
+                        <constraints/>
+                        <properties>
+                          <text value="Export"/>
+                        </properties>
+                      </component>
+                    </children>
+                  </grid>
+                </children>
+              </grid>
+            </children>
+          </grid>
+        </children>
+      </tabbedpane>
+    </children>
+  </grid>
+</form>

@@ -250,14 +250,22 @@ class Variable(object):
         if utils.is_func_ptr(self._cpu_context.emulator.disassembler, self.addr):
             return self.addr
 
+        data = self.data
         data_type = self.data_type.casefold()
+        is_pointer = "*" in data_type
+        data_array = self._data_array()
 
         # Present value as bytes data_type matches.
-        if data_type in ("byte", "tbyte", "string", "struct"):
-            return self.data
+        if not is_pointer:
+            if data_type in ("string", "struct", "tbyte"):
+                return data
+            if "char" in data_type or "byte" in data_type:
+                if len(data_array) == 1:
+                    return data_array[0]
+                else:
+                    return data
 
         # Otherwise present value as an integer.
-        data_array = self._data_array()
         if data_type in ("float", "double"):
             data_array = [utils.int_to_float(value) for value in data_array]
 

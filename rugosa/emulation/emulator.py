@@ -628,32 +628,7 @@ class Emulator:
         """
         Simply calls iter_function_args with the provided ea and returns the first set of arguments.
 
-        :param int address: address containing the function call of interest
-        :param int depth: Number of calls up the stack to pull context from.
-            (defaults to 0, meaning emulation will start at the start of the function containing the given address)
-        :param call_depth: Number of function calls we are allowed to emulate into.
-            When we hit our limit (depth is 0), emulation will no longer jump into function calls.
-            (Defaults to not emulating into any function calls.)
-            NOTE: This does not affect call hooks.
-        :param bool exhaustive:
-            If true, all paths for each call level depth is processed.
-            If follow_loops is also true, this will ensure loops are followed at each call level depth.
-            If false, only the first path for each depth is processed.
-            If follow_loops is also true, loops will only be followed for the first call level.
-                All other levels will use the non-follow_loops method.
-        :param follow_loops:
-            If true, loops will be followed during emulation and only one possible
-            path will be emulated per call level.
-            If false, emulation will be forced down a specific path of flowchart blocks in order
-            to get to the given ea address.
-        :param init_context: Initial context to use to start emulation.
-            NOTE: The yielded context will be a copy of the passed in context with emulation applied.
-        :param int num_args: Force a specific number of arguments.
-            If not provided, number of arguments is determined by the disassembler.
-            Extra arguments not defined by the disassembler are assumed to be 'int' type.
-
-        :return tuple: (context at ea, list of function parameters passed to called function in order)
-        :rtype: Tuple[ProcessorContext, List]
+        :return tuple: (context at ea, list of function arguement passed to called function in order)
         """
         for cpu_context, args in self.iter_function_args(
                 address,
@@ -665,6 +640,26 @@ class Emulator:
                 init_context=init_context
         ):
             return cpu_context, args
+
+    def get_function_arg_values(
+            self, address: int, *, depth=0, call_depth: int = 0, num_args=None, exhaustive=True,
+            follow_loops=False, init_context=None
+    ) -> Optional[Tuple[ProcessorContext, List[int]]]:
+        """
+        Simply calls iter_function_args with the provided ea and returns the first set of argument values.
+
+        :return tuple: (context at ea, list of function argument values passed to called function in order)
+        """
+        for cpu_context, args in self.iter_function_args(
+                address,
+                depth=depth,
+                call_depth=call_depth,
+                num_args=num_args,
+                exhaustive=exhaustive,
+                follow_loops=follow_loops,
+                init_context=init_context
+        ):
+            return cpu_context, [arg.value for arg in args]
 
     def create_emulated(self, func_ea, return_type=None, return_size=None, enforce_args=False) -> Callable:
         """

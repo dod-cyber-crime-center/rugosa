@@ -3,7 +3,6 @@ Interface for memory management.
 """
 from __future__ import annotations
 
-import contextlib
 import io
 import os
 from typing import TYPE_CHECKING, Tuple, List, Optional, Iterable, Union
@@ -24,14 +23,9 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-# TODO: Update Memory object to use the dragodis's Memory object.
-#   - Will need to update it to be able to handle a mixture of initialized and uninitialized bytes.
-#   - Also update Dragodis's get_byte() and get_bytes() functions to use the Memory object?
-
-
 class Stream(io.RawIOBase):
     """
-    Creates a read-only file-like stream of the emulated memory.
+    Creates a file-like stream of the emulated memory.
     """
 
     def __init__(self, memory: Memory, start: int):
@@ -44,7 +38,7 @@ class Stream(io.RawIOBase):
                 self._end = size
                 break
         else:
-            raise RuntimeError(f"Failed to determine end address.")
+            raise RuntimeError(f"Failed to determine end address for memory stream starting at 0x{start:08X}")
 
     def readable(self) -> bool:
         return True
@@ -109,7 +103,7 @@ class PageMap(collections.defaultdict):
 
     Creates a new page when missing.
     New pages uses the bytes from the IDB if in a segment.
-    Segments pages will be mapped, but data retrieval will be delayed until the page
+    Segment pages will be mapped, but data retrieval will be delayed until the page
     is requested. (Helps to avoid unnecessary processing of large unused data segments.)
     """
 
@@ -206,8 +200,6 @@ class PageMap(collections.defaultdict):
         return self._new_page(page_index)
 
 
-# TODO: How do we handle this?
-# TODO: Move this into emulator?
 def clear_cache():
     """
     Clears the internal cache of segment bytes.

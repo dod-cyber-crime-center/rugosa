@@ -2,9 +2,9 @@
 Interface for interesting actions.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 import logging
-from typing import Union, List, Optional, Iterable
+from typing import Union, List, Optional, Iterable, Any, Tuple
 from .call_hooks.win_api import win_constants as wc
 
 logger = logging.getLogger(__name__)
@@ -13,6 +13,10 @@ logger = logging.getLogger(__name__)
 @dataclass
 class Action:
     ip: int
+
+    def __iter__(self) -> Iterable[Tuple[str, Any]]:
+        for field in fields(self):
+            yield field.name, getattr(self, field.name)
 
 
 class ActionList:

@@ -63,6 +63,13 @@ class Instruction:
         return self.__insn
 
     @property
+    def data(self) -> bytes:
+        """
+        Bytes comprising the instruction
+        """
+        return self._insn.data
+
+    @property
     def mnem(self) -> str:
         """Opcode mnemonic."""
         return self._insn.mnemonic
@@ -86,6 +93,10 @@ class Instruction:
     @property
     def is_terminal(self) -> bool:
         return self._insn.is_return
+
+    @property
+    def is_call(self) -> bool:
+        return self._insn.is_call
 
     @property
     def next_ip(self) -> int:

@@ -25,3 +25,13 @@ The following utilities are included with Rugosa:
 - [Regex](./docs/Regex.md)
 - String Management - *TODO*
 - [YARA](./docs/YARA.md)
+
+
+## Emulator Plugin
+
+Rugosa includes a IDA and Ghidra plugin which provides a GUI for using the [emulation](./docs/CPUEmulation.md) utility.
+For more information on how to install and use the plugin please see the [documentation](./docs/EmulatorPlugin.md).
+
+![](docs/assets/ida_overview.png)
+
+![](docs/assets/ghidra_overview.png)

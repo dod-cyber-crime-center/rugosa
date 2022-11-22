@@ -1,6 +1,14 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+- Support all instruction operands, both implied and explicit.
+- Added `.function_arg_values` property to ProcessorContext.
+- Added `.get_function_arg_values()` convenience function to Emulator.
+- Updated `ProcessorContext.call_history` to also include the argument names.
+- Added IDA and Ghidra plugin to provide a GUI for using the emulation utility. (See [documentation](./docs/EmulatorPlugin.md))
+  - Please note: These plugins are currently in beta.
+
 
 ## [0.5.1] - 2022-10-05
 - Fixed performance issue during emulation.

@@ -312,8 +312,8 @@ class ProcessorContext:
 
             # Report on function call and their arguments.
             arg_objs = self.get_function_args(func_address)
-            args = [arg_obj.value for arg_obj in arg_objs]
-            self.call_history.append((call_address, func_name, args))
+            self.call_history.append((call_address, func_name, [(arg.name, arg.value) for arg in arg_objs]))
+            arg_values = [arg_obj.value for arg_obj in arg_objs]
 
             # Execute call hook if provided.
             if call_hook:
@@ -324,7 +324,7 @@ class ProcessorContext:
                         ", ".join(f"{arg_obj.name}={hex(arg_obj.value)}" for arg_obj in arg_objs)
                     )
                     logger.debug("Running hook: %r", call_hook)
-                    ret = call_hook(self, func_name, args)
+                    ret = call_hook(self, func_name, arg_values)
                     if ret is True:
                         ret = 1
                     elif ret is False:
@@ -362,7 +362,10 @@ class ProcessorContext:
     def func_calls(self) -> dict:
         warnings.warn(f".func_calls is deprecated. Please use .call_history instead.", DeprecationWarning)
         # Original .func_calls overwrote calls at the same instruction. So pulling the last one to replicate this logic.
-        return {address: (func_name, args) for address, func_name, args in self.call_history}
+        return {
+            address: (func_name, [value for name, value in args])
+            for address, func_name, args in self.call_history
+        }
 
     def get_call_history(self, func_name_or_ea) -> List[Tuple[int, List]]:
         """
@@ -375,7 +378,11 @@ class ProcessorContext:
         else:
             ea = func_name_or_ea
             func_name = self.emulator.disassembler.get_function_signature(ea).name
-        return [(address, args) for address, _func_name, args in self.call_history if _func_name == func_name]
+        return [
+            (address, [value for name, value in args])
+            for address, _func_name, args in self.call_history
+            if _func_name == func_name
+        ]
 
     def prep_for_branch(self, bb_start_ea):
         """
@@ -561,9 +568,16 @@ class ProcessorContext:
     @property
     def function_args(self) -> List[FunctionArgument]:
         """
-        The function arguments currently set based on the function in the first operand.
+        The function arguments currently set based on the function in the first operand of the current instruction.
         """
         return self.get_function_args()
+
+    @property
+    def function_arg_values(self) -> List[int]:
+        """
+        The function argument values currently set based on teh function in the first operand of the current instruction.
+        """
+        return self.get_function_arg_values()
 
     @property
     def passed_in_args(self) -> List[FunctionArgument]:

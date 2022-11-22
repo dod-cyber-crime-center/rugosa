@@ -424,7 +424,7 @@ def DIV(cpu_context: ProcessorContext, instruction: Instruction):
         cpu_context.registers[rax_str] = result
         cpu_context.registers[rdx_str] = remainder
 
-        
+
 @opcode
 def IDIV(cpu_context: ProcessorContext, instruction: Instruction):
     """
@@ -439,10 +439,10 @@ def IDIV(cpu_context: ProcessorContext, instruction: Instruction):
     if divisor == 0:
         logger.debug("DIV / 0")
         return
-        
+
     rax_str = RAX_REG_SIZE_MAP[width]
     dividend = utils.signed(cpu_context.registers[rax_str], width)
-    
+
     result = int(dividend / divisor) & utils.get_mask(width)
     # TODO: Ideally we would be able to just use result here instead of recalculating. We need to test if
     #       we can do that without introducing errors and make the change if so.
@@ -455,7 +455,7 @@ def IDIV(cpu_context: ProcessorContext, instruction: Instruction):
         rdx_str = RDX_REG_SIZE_MAP[width]
         cpu_context.registers[rax_str] = result
         cpu_context.registers[rdx_str] = remainder
-        
+
 
 @opcode
 def DIVSD(cpu_context: ProcessorContext, instruction: Instruction):
@@ -492,7 +492,7 @@ def _mul(cpu_context: ProcessorContext, instruction: Instruction):
     width = get_max_operand_size(operands)
     mask = utils.get_mask(width)
     multiplier1 = cpu_context.registers[RAX_REG_SIZE_MAP[width]]
-    multiplier2 = operands[0].value
+    multiplier2 = operands[1].value
     result = multiplier1 * multiplier2
     flags = ["cf", "of"]
 
@@ -558,18 +558,16 @@ def IMUL(cpu_context: ProcessorContext, instruction: Instruction):
     """
     operands = instruction.operands
     width = get_max_operand_size(operands)
-    op_count = len(operands)
-    if op_count == 1:
+    insn_data = instruction.data
+    # Check for REX_W indicating a long instruction, REX is 0x40 with the W bit (0x08) set
+    opcode_byte = insn_data[1] if insn_data[0] == 0x48 else insn_data[0]
+    # F6/F7 are 8 and 16/32 bit IMUL without truncation so just use _mul
+    if opcode_byte in (0xF6, 0xF7):
         _mul(cpu_context, instruction)
         return
-    elif op_count == 2:
-        multiplier1 = operands[0].value
-        multiplier2 = operands[1].value
-    elif op_count == 3:
-        multiplier1 = operands[1].value
-        multiplier2 = operands[2].value
-    else:
-        raise Exception(f"0x{instruction.ip:08X}: Invalid sequence for IMUL instruction")
+
+    multiplier1 = operands[-2].value
+    multiplier2 = operands[-1].value
 
     mask = utils.get_mask(width)
     result = multiplier1 * multiplier2
@@ -1154,8 +1152,13 @@ def movs(cpu_context: ProcessorContext, instruction: Instruction):
     Move Data from String to String
     """
     operands = instruction.operands
-    # movsd op1 op2
-    if instruction.mnem == "movsd" and len(operands) == 2:
+    # Scalar Double-Precision Floating-point move
+    # Need to amend this to take into account the VEX and EVEX prefixes (not sure what they are at this point)
+    # references:
+    #   en.wikipedia.org/wiki/VEX_prefix
+    #   en.wikipedia.org/wiki/EVEX_prefix
+    #if instruction.mnem == "movsd" and len(operands) == 2:
+    if instruction.data[0] == 0xF2:
         op1, op2 = operands
         data = op2.value
         if op1.type == OperandType.register:
