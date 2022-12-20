@@ -491,8 +491,9 @@ def _mul(cpu_context: ProcessorContext, instruction: Instruction):
     operands = instruction.operands
     width = get_max_operand_size(operands)
     mask = utils.get_mask(width)
-    multiplier1 = cpu_context.registers[RAX_REG_SIZE_MAP[width]]
-    multiplier2 = operands[1].value
+    multiplier1 = cpu_context.registers[RAX_REG_SIZE_MAP[width]]  # implied operand
+    # Pull right-most operand to handle both 1 and 2 operand instructions
+    multiplier2 = operands[-1].value
     result = multiplier1 * multiplier2
     flags = ["cf", "of"]
 

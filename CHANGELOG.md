@@ -1,6 +1,11 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## [0.6.1] - 2022-12-20
+- Fix EOFError that can occur when running consecutive Emulator instances due to stale caching.
+- Fix IndexError bug in IMUL emulation.
+
+
 ## [0.6.0] - 2022-12-02
 - Support all instruction operands, both implied and explicit.
 - Fix bug in ROL opcode implementation.
@@ -70,7 +75,8 @@ All notable changes to this project will be documented in this file.
 - Migrated the majority of Kordesii functionality to work with Dragodis.
 
 
-[Unreleased]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.6.0...HEAD
+[Unreleased]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.6.1...HEAD
+[0.6.1]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.6.0...0.6.1
 [0.6.0]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.5.1...0.6.0
 [0.5.1]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.5.0...0.5.1
 [0.5.0]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.4.0...0.5.0

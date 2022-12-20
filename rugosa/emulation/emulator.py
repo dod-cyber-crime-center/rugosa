@@ -83,6 +83,8 @@ class Emulator:
         else:
             raise NotImplementedError(f"Architecture not supported: {self.arch}")
 
+        self._flowchart_cache = {}
+        self._memory_cache = {}
         self._call_hooks = call_hooks.BUILTINS.copy()
         self._instruction_hooks = collections.defaultdict(list)
         self._opcode_hooks = self._context_class.OPCODES.copy()
@@ -91,16 +93,14 @@ class Emulator:
         self.disabled_rep = False
         self.teleported = False
 
-    @classmethod
-    def clear_cache(cls):
+    def clear_cache(self):
         """
         Clears any internal caching during previous emulation runs.
         Calling this will be necessary if you have patched in new bytes into the disassembler and would like
         the emulator's memory object to reflect this change.
         """
-        # Necessary to import PageMap here because we could be teleported.
-        from rugosa.emulation.memory import PageMap
-        PageMap._segment_cache = {}
+        self._flowchart_cache.clear()
+        self._memory_cache.clear()
 
     def disable(self, name: str):
         """
@@ -485,7 +485,7 @@ class Emulator:
         else:
             for context in init_contexts():
                 flowchart = self.disassembler.get_flowchart(address)
-                for path in iter_paths(flowchart, address):
+                for path in iter_paths(flowchart, address, _cache=self._flowchart_cache):
                     yield path.cpu_context(address, call_depth=call_depth, init_context=deepcopy(context))
 
                     # Don't process other paths if we are at the user call level and exhaustive wasn't chosen.

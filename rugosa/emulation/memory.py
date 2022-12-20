@@ -109,19 +109,22 @@ class PageMap(collections.defaultdict):
 
     PAGE_SIZE = 0x1000
 
-    # Cache of segment pages.
-    # Used to prevent multiple calls to pull data from the disassembler.
-    _segment_cache = {}
-
-    def __init__(self, dis: dragodis.Disassembler, map_segments=True):
+    def __init__(self, dis: dragodis.Disassembler, map_segments=True, _cache=None):
         # Setting default_factory to None, because we have overwritten it in __missing__()
         super().__init__(None)
+
+        # Cache of segment pages.
+        # Used to prevent multiple calls to pull data from the disassembler.
+        if _cache is None:
+            _cache = {}
+        self._segment_cache = _cache
+
         self._dis = dis
         if map_segments:
             self.map_segments()
 
     def __deepcopy__(self, memo):
-        copy = PageMap(self._dis, map_segments=False)
+        copy = PageMap(self._dis, map_segments=False, _cache=self._segment_cache)
         memo[id(self)] = copy
         copy.update({index: (page[:] if page is not None else None) for index, page in self.items()})
         return copy
@@ -200,16 +203,6 @@ class PageMap(collections.defaultdict):
         return self._new_page(page_index)
 
 
-def clear_cache():
-    """
-    Clears the internal cache of segment bytes.
-    Calling this will be necessary if you have patched in new bytes into the disassembler.
-    """
-    warnings.warn("clear_cache() as been moved to Emulator.clear_cache()", DeprecationWarning)
-    from rugosa.emulation.emulator import Emulator
-    Emulator.clear_cache()
-
-
 class Memory:
     """
     Class which implements the CPU memory controller backed by the segment data in the input file.
@@ -228,10 +221,10 @@ class Memory:
     MAX_MEM_READ = 0x10000000
     MAX_MEM_WRITE = 0x10000000
 
-    def __init__(self, cpu_context: ProcessorContext):
+    def __init__(self, cpu_context: ProcessorContext, _cache=None):
         """Initializes Memory object."""
         self._cpu_context = cpu_context
-        self._pages = PageMap(cpu_context.emulator.disassembler)
+        self._pages = PageMap(cpu_context.emulator.disassembler, _cache=cpu_context.emulator._memory_cache)
         # A map of base addresses to size for heap allocations.
         self._heap_base = cpu_context.emulator.disassembler.max_address
         self._heap_allocations = {}

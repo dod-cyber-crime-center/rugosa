@@ -24,21 +24,6 @@ class PathNode:
     This object can also track cpu context up to a certain address.
     """
 
-    _cache = {}
-
-    def __new__(cls, block: BasicBlock, prev: Optional[PathNode]):
-        """
-        Constructor that caches and reuses existing instances.
-        """
-        key = (block, prev)
-        try:
-            return cls._cache[key]
-        except KeyError:
-            self = super().__new__(cls)
-            self.__init__(block, prev)
-            cls._cache[key] = self
-            return self
-
     def __init__(self, block: BasicBlock, prev: Optional[PathNode]):
         """
         Initialize a path node.
@@ -54,15 +39,19 @@ class PathNode:
         self._call_depth = 0          # the number of calls deep we are allowed to emulated
 
     @classmethod
-    def iter_all(cls, block: BasicBlock, _visited=None) -> Iterable[PathNode]:
+    def iter_all(cls, block: BasicBlock, _visited=None, _cache=None) -> Iterable[PathNode]:
         """
         Iterates all tail path nodes from a given block.
 
         :param block: Block to obtain all path nodes.
         :param _visited: Internally used.
+        :param _cache: Internally used.
 
         :yields: PathNode objects that represent the last entry of the path linked list.
         """
+        if _cache is None:
+            _cache = {}
+
         if _visited is None:
             _visited = set()
 
@@ -78,8 +67,14 @@ class PathNode:
                     continue
 
                 # Create path nodes for each path of parent.
-                for parent_path in cls.iter_all(parent, _visited=_visited):
-                    yield cls(block, prev=parent_path)
+                for parent_path in cls.iter_all(parent, _visited=_visited, _cache=_cache):
+                    key = (block, parent_path)
+                    try:
+                        yield _cache[key]
+                    except KeyError:
+                        path_node = cls(block, prev=parent_path)
+                        _cache[key] = path_node
+                        yield path_node
 
         _visited.remove(block.start)
 
@@ -188,7 +183,7 @@ class PathNode:
         return deepcopy(self._context)
 
 
-def iter_paths(flowchart: Flowchart, addr: int) -> Iterable[PathNode]:
+def iter_paths(flowchart: Flowchart, addr: int, _cache=None) -> Iterable[PathNode]:
     """
     Given an EA, iterate over the paths to the EA.
 
@@ -202,9 +197,13 @@ def iter_paths(flowchart: Flowchart, addr: int) -> Iterable[PathNode]:
 
     :param flowchart: Dragodis Flowchart to get basic blocks from.
     :param addr: Address of interest
+    :param _cache: Internally used.
 
     :yield: a path to the object
     """
+    if _cache is None:
+        _cache = {}
+
     # Obtain the block containing the address of interest
     try:
         block = flowchart.get_block(addr)
@@ -213,5 +212,4 @@ def iter_paths(flowchart: Flowchart, addr: int) -> Iterable[PathNode]:
         logger.debug(f"Unable to find block with ea: 0x{addr:08X}")
         return
 
-    yield from PathNode.iter_all(block)
-
+    yield from PathNode.iter_all(block, _cache=_cache)

@@ -15,6 +15,16 @@ def _get_strings_path(arch, tmp_path_factory) -> pathlib.Path:
     return new_strings_path
 
 
+@pytest.fixture
+def strings_x86(tmp_path_factory) -> pathlib.Path:
+    return _get_strings_path("x86", tmp_path_factory)
+
+
+@pytest.fixture
+def strings_arm(tmp_path_factory) -> pathlib.Path:
+    return _get_strings_path("arm", tmp_path_factory)
+
+
 @pytest.fixture(scope="function")
 def disassembler(request, tmp_path_factory) -> dragodis.Disassembler:
     """

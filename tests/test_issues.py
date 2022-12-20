@@ -2,6 +2,9 @@
 Tests for bug fixes reported on GitHub.
 """
 
+import pytest
+
+import dragodis
 from rugosa.emulation.emulator import Emulator
 from rugosa.emulation.constants import WIDE_STRING
 
@@ -43,3 +46,23 @@ def test_function_case_senstivity_all(disassembler):
     assert emulator.get_call_hook("SuperFunc").__name__ == "dummy"
     assert emulator.get_call_hook("SUPERfunc").__name__ == "dummy"
     assert emulator.get_call_hook("superfunc").__name__ == "dummy"
+
+
+def test_multiple_emulations(strings_x86):
+    """
+    Tests issue with stale caching when multiple emulations happen in same process but different dragodis disassemblies.
+    """
+    address = 0x401024
+
+    try:
+        with dragodis.open_program(strings_x86, "ida") as dis:
+            emulator = Emulator(dis, teleport=False)
+            ctx = emulator.context_at(address)
+
+        with dragodis.open_program(strings_x86, "ida") as dis:
+            emulator = Emulator(dis, teleport=False)
+            ctx = emulator.context_at(address)
+    except dragodis.NotInstalledError as e:
+        pytest.skip(str(e))
+
+    # We pass if we don't get an EOFError raised.
