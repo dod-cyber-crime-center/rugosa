@@ -1,6 +1,10 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+- Add `movsq` opcode support (@ddash-ct)
+
+
 ## [0.6.1] - 2022-12-20
 - Fix EOFError that can occur when running consecutive Emulator instances due to stale caching.
 - Fix IndexError bug in IMUL emulation.

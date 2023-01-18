@@ -1146,6 +1146,7 @@ def _movsx(cpu_context: ProcessorContext, instruction: Instruction):
 @opcode("movsb")
 @opcode("movsw")
 @opcode("movsd")
+@opcode("movsq")
 def movs(cpu_context: ProcessorContext, instruction: Instruction):
     """
     Move Scalar Double-Precision Floating-Point Value
@@ -1173,13 +1174,17 @@ def movs(cpu_context: ProcessorContext, instruction: Instruction):
         if cpu_context.bitness == 16:
             src = "si"
             dst = "di"
+        # 0x67 indicates 32-bit addressing
+        elif cpu_context.bitness == 64 and instruction.data[0] != 0x67:
+            src = "rsi"
+            dst = "rdi"
         else:
             src = "esi"
             dst = "edi"
         # IDA sometimes provides a single "fake" operand to help determine the size.
         width = operands[0].width if operands else 4
 
-        size = {"movs": width, "movsb": 1, "movsw": 2, "movsd": 4}[instruction.mnem]
+        size = {"movs": width, "movsb": 1, "movsw": 2, "movsd": 4, "movsq": 8}[instruction.mnem]
         src_ptr = cpu_context.registers[src]
         dst_ptr = cpu_context.registers[dst]
         logger.debug("0x%X -> 0x%X", src_ptr, dst_ptr)
