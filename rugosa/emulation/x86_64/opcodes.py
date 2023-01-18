@@ -1174,7 +1174,8 @@ def movs(cpu_context: ProcessorContext, instruction: Instruction):
         if cpu_context.bitness == 16:
             src = "si"
             dst = "di"
-        elif cpu_context.bitness == 64:
+        # 0x67 indicates 32-bit addressing
+        elif cpu_context.bitness == 64 and instruction.data[0] != 0x67:
             src = "rsi"
             dst = "rdi"
         else:
