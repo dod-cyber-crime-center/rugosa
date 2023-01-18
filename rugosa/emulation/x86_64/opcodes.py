@@ -1174,6 +1174,9 @@ def movs(cpu_context: ProcessorContext, instruction: Instruction):
         if cpu_context.bitness == 16:
             src = "si"
             dst = "di"
+        elif cpu_context.bitness == 64:
+            src = "rsi"
+            dst = "rdi"
         else:
             src = "esi"
             dst = "edi"
