@@ -11,7 +11,7 @@ import dragodis.interface
 from dragodis import Disassembler, NotExistError
 from dragodis.interface import (
     StackLocation, RelativeRegisterLocation, StaticLocation, RegisterLocation,
-    RegisterPairLocation
+    RegisterPairLocation, ArgumentLocation
 )
 
 from . import utils
@@ -143,6 +143,10 @@ class FunctionArgument:
         self._parameter.name = value
 
     @property
+    def location(self) -> ArgumentLocation:
+        return self._parameter.location
+
+    @property
     def type(self) -> str:
         """User friendly type name."""
         return self._parameter.data_type.name
@@ -163,13 +167,13 @@ class FunctionArgument:
     @property
     def is_stack(self):
         """True if argument is on the stack."""
-        return isinstance(self._parameter.location, StackLocation)
+        return isinstance(self.location, StackLocation)
 
     # TODO: Refactor to be more processor agnostic
     @property
     def addr(self):
         """Retrieves the address of the argument (if a memory/stack address)"""
-        location = self._parameter.location
+        location = self.location
         disassembler: Disassembler = self._cpu_context.emulator.disassembler
 
         if isinstance(location, StackLocation):
@@ -208,7 +212,7 @@ class FunctionArgument:
     def value(self):
         """Retrieves the value of the argument based on the cpu context."""
         # TODO: Pull value data based on type.
-        location = self._parameter.location
+        location = self.location
 
         # On Stack
         if isinstance(location, StackLocation):
@@ -253,7 +257,7 @@ class FunctionArgument:
     def value(self, value):
         """Sets the value of the argument to the cpu context."""
         # TODO: Pull value data based on type.
-        location = self._parameter.location
+        location = self.location
 
         # On Stack
         if isinstance(location, StackLocation):

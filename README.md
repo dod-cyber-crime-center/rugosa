@@ -23,7 +23,7 @@ The following utilities are included with Rugosa:
 - [Emulation](./docs/CPUEmulation.md)
 - [Extra Disssembly Interfaces](./rugosa/disassembly.py)
 - [Regex](./docs/Regex.md)
-- String Management - *TODO*
+- [Strings](./rugosa/strings.py)
 - [YARA](./docs/YARA.md)
 
 

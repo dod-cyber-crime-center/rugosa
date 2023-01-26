@@ -2,11 +2,16 @@
 Common standard C library builtin functions.
 """
 
+from __future__ import annotations
 import logging
 import re
+from typing import TYPE_CHECKING
 
 from ... import constants
 from ...call_hooks import builtin_func
+
+if TYPE_CHECKING:
+    from rugosa.emulation.cpu_context import ProcessorContext
 
 logger = logging.getLogger(__name__)
 
@@ -440,18 +445,22 @@ def strstr(cpu_context, func_name, func_args):
     return str1_ptr + offset
 
 
-def _format_string(ctx, fmt, required_args, string_type=constants.STRING):
+def _format_string(ctx: ProcessorContext, fmt: str, required_args: int, wide: bool = False) -> str:
     """
     Handles formatting the string with the function arguments based on the format.
 
     :param ctx: cpu_context object
     :param fmt: format string
     :param required_args: num of required arguments for the particular format function to skip
+    :param wide: Whether the strings are wide
+
+    :return: The formatted string
     """
+    # TODO: parse string instead of bytes
     # Format using best attempt here.  Basically, locate all the format specifiers, and convert them to a python
     # supported format string.  For each format string, extract the appropriate data from the context, and append it to
     # the values list.
-    fmt_val_re = re.compile(br"""
+    fmt_val_re = re.compile(r"""
     %                           # start with percent character
     [-+ #0]{0,1}                # optional flag character
     (\*|[0-9]{1,}){0,}          # optional width specifier, though mutually exclusive (either a number or *, not both)
@@ -464,68 +473,62 @@ def _format_string(ctx, fmt, required_args, string_type=constants.STRING):
     logger.debug("Format vals: %r", fmt_vals)
 
     # Re-pull function arguments with correct number of arguments.
-    func_sig = ctx.get_function_signature()
-    for _ in range(len(func_sig.arguments) - required_args):
-        func_sig.remove_argument(-1)
-    # For an unknown reason, int is not always being read as a QWORD on 64-bit, so this line
-    # forces the issue to ensure pointer addresses aren't being truncated to 32 bits
-    data_type = "qword" if ctx.bitness == 64 else "dword"
-    for _ in range(len(fmt_vals)):
-        func_sig.add_argument(data_type)
-    func_args = [arg.value for arg in func_sig.arguments]
+    func_args = ctx.get_function_arg_values(num_args=required_args + len(fmt_vals))
 
     format_vals = []
     arg_pos = required_args  # skip destination and format string
     for match in fmt_vals:
-        if b"*" in match:
+        value = func_args[arg_pos]
+
+        if "*" in match:
             # Indicates that one of the parameters is a width, which must be pulled and added to the list first
-            format_vals.append(func_args[arg_pos])
             arg_pos += 1
 
-        if match.endswith(b"c"):  # character (will this be the value or a read from the context???
-            arg_val = func_args[arg_pos]
-            if arg_val <= 0xFF:  # assume that the argument contains the character
-                format_vals.append(arg_val)
+        if match.endswith("c"):  # character (will this be the value or a read from the context???
+            if value <= 0xFF:  # assume that the argument contains the character
+                value = chr(value)
             else:   # assume it's a pointer that must be dereferenced
-                format_vals.append(ctx.memory.read_data(arg_val, size=1))
+                value = chr(ctx.memory.read_data(value, size=1))
 
-        elif match.endswith(b"s"):  # string value, should be a pointer
-            _arg = ctx.memory.read_data(func_args[arg_pos], data_type=string_type)
-            if not len(_arg):   # If the argument isn't set during parsing, preserve the formatting
+        elif match.endswith("s"):  # string value, should be a pointer
+            value = ctx.memory.read_string(value, wide=wide)
+            if not value:   # If the argument isn't set during parsing, preserve the formatting
                 logger.debug("Pulled 0 byte format string, reverting")
-                _arg = b"%s"
-            format_vals.append(_arg)
+                value = "%s"
 
-        else:   # all other numerical types???
-            format_vals.append(func_args[arg_pos])
+        # all other numerical types???
 
+        format_vals.append(value)
         arg_pos += 1
 
-    result = fmt % tuple(format_vals)
+    format_vals = tuple(format_vals)
+    result = fmt % format_vals
+    logger.debug(f"Formatted string: {fmt!r} % {format_vals!r} -> {result!r}")
     return result
 
 
-@builtin_func
+@builtin_func("sprintf")
+@builtin_func("wsprintfW")  # TODO: technically from winuser.h
 def sprintf(ctx, func_name, func_args):
     """
     Format a string based on provided format string and parameters.
+
+    int sprintf (char *s, const char *format, ...);
 
     For sprintf, there's no way to know up front how many args are needed, but there should always be at least
     2 (destination and format).  We can use the format string to determine how many arguments we need by
     counting the format specifiers.
     """
-    # Almost guaranteed to get the incorrect number of args.  So obtain the format string and count the number of
-    # format specifiers to determine how many args we need, not including the first 2
+    wide = func_name.endswith("W")
     if len(func_args) < 2:   # Ensure that there are at least 2 arguments, dest and format
-        # Need to try to get at least 2 arguments...
         func_args = ctx.get_function_arg_values(num_args=2)
 
-    dest = func_args[0]
-    fmt = ctx.memory.read_data(func_args[1])
+    dest, fmt_ptr, *_ = func_args
+    fmt = ctx.memory.read_string(fmt_ptr, wide=wide)
     logger.debug("Format string: %s", fmt)
-    result = _format_string(ctx, fmt, 2)
+    result = _format_string(ctx, fmt, 2, wide)
     logger.debug("Writing formatted value %s to 0x%X", result, dest)
-    ctx.memory.write(dest, result + b"\0")
+    ctx.memory.write_string(dest, result + "\0", wide=wide)
     return len(result)
 
 
@@ -539,16 +542,15 @@ def snprintf(ctx, func_name, func_args):
     Format a string using the provided format string and values, truncated if necessary to length n.
     """
     wide = func_name.startswith("sw")
-    string_type = constants.WIDE_STRING if wide else constants.STRING
     if len(func_args) < 3:
         func_args = ctx.get_function_arg_values(num_args=3)
 
-    dest, n = func_args[:2]
-    fmt = ctx.memory.read_data(func_args[2], data_type=string_type)
+    dest, n, fmt_ptr, *_ = func_args
+    fmt = ctx.memory.read_string(fmt_ptr, wide=wide)
     logger.debug("Format string: %s", fmt)
-    result = _format_string(ctx, fmt, 3, string_type)
-    logger.debug("Writing formatted value %s to 0x%X", result[:n - 1], dest)
-    ctx.memory.write(dest, result[:n - 1] + b"\0")
+    result = _format_string(ctx, fmt, 3, wide)[:n - 1]
+    logger.debug("Writing formatted value %s to 0x%X", result, dest)
+    ctx.memory.write_string(dest, result + "\0", wide=wide)
     return len(result)
 
 
@@ -565,9 +567,10 @@ def printf(ctx, func_name, func_args):
     if len(func_args) < 1:
         func_args = ctx.get_function_arg_values(num_args=1)
 
-    fmt = ctx.memory.read_data(func_args[0])
+    fmt_ptr, *_ = func_args
+    fmt = ctx.memory.read_string(fmt_ptr)
     logger.debug("Format string: %s", fmt)
     result = _format_string(ctx, fmt, 1)
     logger.debug("Writing formatted value %s to stdout", result)
-    ctx.stdout += result.decode()
+    ctx.stdout += result
     return len(result)

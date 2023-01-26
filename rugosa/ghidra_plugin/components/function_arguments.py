@@ -92,7 +92,7 @@ class FunctionArguments:
         for arg in arguments:
             row = [""] * len(self.HEADERS)
             row[0] = str(arg.ordinal)
-            row[1] = str(arg._parameter.location)
+            row[1] = str(arg.location)
             row[2] = arg.type
             row[3] = str(arg.width)
             row[4] = arg.name

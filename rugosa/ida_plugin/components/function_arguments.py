@@ -59,7 +59,7 @@ class FunctionArguments:
         table.setRowCount(len(arguments))
         for index, arg in enumerate(arguments):
             table.setItem(index, 0, QtWidgets.QTableWidgetItem(str(arg.ordinal)))
-            table.setItem(index, 1, QtWidgets.QTableWidgetItem(str(arg._parameter.location)))
+            table.setItem(index, 1, QtWidgets.QTableWidgetItem(str(arg.location)))
             table.setItem(index, 2, QtWidgets.QTableWidgetItem(arg.type))
             table.setItem(index, 3, QtWidgets.QTableWidgetItem(str(arg.width)))
             table.setItem(index, 4, QtWidgets.QTableWidgetItem(arg.name))

@@ -6,7 +6,7 @@ import logging
 from typing import Optional
 
 from dragodis import OperandType
-from dragodis.interface import Phrase, MemoryReference, Immediate
+from dragodis.interface import Phrase, MemoryReference, Immediate, Register
 
 from .. import utils
 from ..operands import Operand
@@ -80,15 +80,14 @@ class x86_64Operand(Operand):
 
         e.g.
             [ebp+ecx*2+8] -> 8
+            fs:[eax] -> eax
         """
         phrase = self._operand.value
         if not isinstance(phrase, Phrase):
             return None
-        # NOTE: Offset shouldn't be a register for x86.
-        # If we get a register, we have a bug. So let it explode.
         offset = phrase.offset
-        if not isinstance(offset, int):
-            raise ValueError(f"Expected an integer offset. Got {type(offset)} for {offset}")
+        if isinstance(offset, Register):
+            offset = self._cpu_context.registers[offset.name]
         return offset
 
     @property
@@ -136,15 +135,6 @@ class x86_64Operand(Operand):
 
     @property
     def value(self):
-        # TODO: Determine if this is still necessary.
-        # FS, GS (at least) registers are identified as memory addresses.  We need to identify them as registers
-        # and handle them as such
-        if self.type == OperandType.memory:
-            if "fs" in self.text:
-                return self._cpu_context.registers.fs
-            elif "gs" in self.text:
-                return self._cpu_context.registers.gs
-
         return super().value
 
     @value.setter
@@ -153,17 +143,6 @@ class x86_64Operand(Operand):
             logger.debug("0x%X -> %s", value, self.text)
         except TypeError:
             logger.debug("%r -> %s", value, self.text)
-
-        # TODO: Determine if this is still necessary.
-        # FS, GS (at least) registers are identified as memory addresses.  We need to identify them as registers
-        # and handle them as such
-        if self.type == OperandType.memory:
-            if "fs" in self.text:
-                self._cpu_context.registers.fs = value
-                return
-            elif "gs" in self.text:
-                self._cpu_context.registers.gs = value
-                return
 
         # On 64-bit, the destination register must be set to 0 first (per documentation)
         # TODO: Check if this happens regardless of the source size

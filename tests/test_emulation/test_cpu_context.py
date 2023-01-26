@@ -76,12 +76,12 @@ def test_cpu_context_x86(disassembler):
     # Test variables
     data_ptr = operands[0].addr
     assert sorted(context.variables.names) in (
-        ["arg_0", "arg_4"],
+        ["a1", "a2"],
         ["param_1", "param_2"],
     )
     assert data_ptr in context.variables
     var = context.variables[data_ptr]
-    assert var.name in ("arg_0", "param_1")
+    assert var.name in ("a1", "param_1")
     assert not var.history
     assert var.size == 4
     assert var.data_type in ("int", "byte *")

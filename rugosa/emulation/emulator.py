@@ -102,6 +102,28 @@ class Emulator:
         self._flowchart_cache.clear()
         self._memory_cache.clear()
 
+    def enable(self, *names: str):
+        """
+        Enables the use of a specific opcode or function hook.
+
+        The hooks enabled are pulled from the default implementation
+            of opcodes/functions and will overwrite any custom hook currently in place.
+
+        :param name: Name(s) of opcode/function hook.
+            NOTE: All the "rep*" opcodes will be enabled if the name is "rep".
+        """
+        for name in names:
+            name = name.lower()
+
+            if name in self._context_class.OPCODES:
+                self._opcode_hooks[name] = self._context_class.OPCODES[name]
+            elif name in call_hooks.BUILTINS:
+                self._call_hooks[name] = call_hooks.BUILTINS[name]
+            elif name.startswith("rep"):
+                self.disabled_rep = False
+            else:
+                raise ValueError(f'Opcode/function hook named "{name}" not found.')
+
     def disable(self, name: str):
         """
         Disables the use of a specific opcode or function hook.
@@ -124,6 +146,30 @@ class Emulator:
             del self._call_hooks[name]
         elif name.startswith("rep"):
             self.disabled_rep = True
+
+    def disable_all(self, disable_function_hooks: bool = False):
+        """
+        Disables all opcode hooks for the current emulator instance.
+        This is meant to be used when only a small number of opcodes need to
+            be emulated and can greatly help speed up emulation.
+
+        This removes all opcode hooks currently in place, only function hooks
+            will be emulated.
+        Function hooks can be disabled as well if desired.
+
+        Enabling specific hooks can be done with :func:`~emulator.Emulator.enable`.
+
+        The simplest way to have all the disabled hooks enabled again is to
+            create a new emulator instance.
+        """
+        self._opcode_hooks = {}
+        self._instruction_hooks = collections.defaultdict(list)
+        self.disabled_rep = True
+        logger.debug("All opcode/instruction hooks disabled")
+
+        if disable_function_hooks:
+            self._call_hooks = {}
+            logger.debug("All function hooks disabled")
 
     def new_context(self) -> ProcessorContext:
         return self._context_class(self)
@@ -204,7 +250,7 @@ class Emulator:
         if isinstance(name_or_start_ea, str):
             name = name_or_start_ea
             # NOTE: Using from_name because we need to be sure there is actual instructions to emulate.
-            func = func_utils.from_name(self.disassembler, name)
+            func = self.disassembler.get_function_by_name(name)
             func_address = func.start
         else:
             func_address = name_or_start_ea
@@ -309,7 +355,7 @@ class Emulator:
         """
         if isinstance(address_or_name, str):
             name = address_or_name
-            func = func_utils.from_name(self.disassembler, name, ignore_underscore=True)
+            func = self.disassembler.get_function_by_name(name)
         else:
             address = address_or_name
             func = self.disassembler.get_function(address)

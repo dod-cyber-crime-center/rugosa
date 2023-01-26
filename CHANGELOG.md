@@ -1,8 +1,23 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+
 ## [Unreleased]
 - Add `movsq` opcode support (@ddash-ct)
+- Added utility functions for analyzing strings:
+  - `find_user_strings()`
+  - `find_api_resolve_strings()`
+  - `is_code_string()`
+  - `is_library_string()`
+  - `detect_encoding()`
+  - `force_to_string()`
+- Added better support for operands with segment registers (fs/gs)
+- Fixed default data type to be an 8 byte qword when forcing extra arguments on a 64bit sample.
+- Added `default_data_type` argument on `get_function_args()`/`get_function_arg_values()`/`get_function_signatures()` to change the data type used when forcing extra arguments. (Data type given should be valid for the underlying disassembler.)
+- Add support for `wsprintfW` call hook.
+- Added `FunctionArgument.location` property, which provides the location of the argument. (stack offset, register, etc.)
+- Added `disable_all()` and `enable()` to emulator instances which simulates a whitelist for opcode/function hooks.
+- Fixed bug in `idiv` opcode emulation.
 
 
 ## [0.6.1] - 2022-12-20

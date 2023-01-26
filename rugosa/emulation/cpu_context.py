@@ -484,7 +484,9 @@ class ProcessorContext:
         else:
             return ip, None
 
-    def get_function_signature(self, func_ea=None, num_args=None) -> Optional[FunctionSignature]:
+    def get_function_signature(
+            self, func_ea: int = None, num_args: int = None, default_data_type: str = None
+    ) -> Optional[FunctionSignature]:
         """
         Returns the function signature of the given func_ea with argument values pulled
         from this context.
@@ -493,13 +495,14 @@ class ProcessorContext:
             The first operand is used if not provided. (helpful for a "call" instruction)
         :param int num_args: Force a specific number of arguments in the signature.
             If not provided, number of arguments is determined by the disassembler.
-            Extra arguments not defined by the disassembler are assumed to be 'int' type.
+            Extra arguments not defined by the disassembler are assumed to be the default_data_type.
             Avoid using num_args and adjust the returned FunctionSignature manually
             if more customization is needed.
-            (NOTE: The function signature will be forced on failure if this is set.)
 
             WARNING: Setting the number of arguments will permanently change the
             signature on the backend disassembler.
+        :param str default_data_type: The default data type to use when forcing extra arguments.
+            (Defaults to "dword" for 32-bit or "qword" for 64-bit)
 
         :return: FunctionSignature object or None if not applicable
 
@@ -521,21 +524,23 @@ class ProcessorContext:
         if num_args is not None:
             if num_args < 0:
                 raise ValueError("num_args is negative")
+
             arguments = signature.arguments
             if len(arguments) > num_args:
-                # TODO: Instead of removing arugments, can we just not pull them all?
                 for _ in range(len(arguments) - num_args):
                     signature.remove_argument(-1)
 
             elif len(arguments) < num_args:
-                # TODO: Is there a way to just see what the argument location would be
-                #   without having to modify the function signature?
+                if not default_data_type:
+                    default_data_type = "qword" if self.bitness == 64 else "dword"
                 for _ in range(num_args - len(arguments)):
-                    signature.add_argument("int")
+                    signature.add_argument(default_data_type)
 
         return signature
 
-    def get_function_args(self, func_ea=None, num_args=None) -> List[FunctionArgument]:
+    def get_function_args(
+            self, func_ea: int = None, num_args: int = None, default_data_type: str = None
+    ) -> List[FunctionArgument]:
         """
         Returns the FunctionArg objects for this context based on the
         given function.
@@ -550,20 +555,24 @@ class ProcessorContext:
             Use get_function_signature() and adjust the FunctionSignature manually
             if more customization is needed.
             (NOTE: The function signature will be forced on failure if this is set.)
+        :param str default_data_type: The default data type to use when forcing extra arguments.
+            (Defaults to "dword" for 32-bit or "qword" for 64-bit)
 
         :returns: list of FunctionArg objects
         """
-        func_sig = self.get_function_signature(func_ea, num_args=num_args)
+        func_sig = self.get_function_signature(func_ea, num_args=num_args, default_data_type=default_data_type)
         if not func_sig:
             return []
 
         return func_sig.arguments
 
-    def get_function_arg_values(self, func_ea=None, num_args=None) -> List[int]:
+    def get_function_arg_values(
+            self, func_ea: int = None, num_args: int = None, default_data_type: str = None
+    ) -> List[int]:
         """
         Returns the FunctionArg values for this context based on the given function.
         """
-        return [arg.value for arg in self.get_function_args(func_ea=func_ea, num_args=num_args)]
+        return [arg.value for arg in self.get_function_args(func_ea=func_ea, num_args=num_args, default_data_type=default_data_type)]
 
     @property
     def function_args(self) -> List[FunctionArgument]:

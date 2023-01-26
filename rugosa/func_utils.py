@@ -2,6 +2,7 @@
 Helper utilities for functions.
 """
 import collections
+import warnings
 
 import dragodis
 from dragodis.interface import Function
@@ -13,28 +14,14 @@ __all__ = [
 
 
 def from_name(dis: dragodis.Disassembler, func_name: str, ignore_underscore: bool = False) -> Function:
-    """
-    Factory method for obtaining a Function by name.
-
-    e.g.
-        with dragodis.open_program("input.exe") as dis:
-            func = functions.from_name(dis, "WriteFile")
-
-    :param dis: Dragodis disassembler
-    :param str func_name: Name of function to obtain
-    :param bool ignore_underscore: Whether to ignore underscores in function name.
-        (Will return the first found function if enabled.)
-
-    :return: Function object
-    :raises ValueError: If function name was not found.
-    """
-    for func in dis.functions():
-        _func_name = func.name
-        if ignore_underscore:
-            _func_name = _func_name.strip("_")
-        if func_name == _func_name:
-            return func
-    raise ValueError(f"Unable to find function with name: {func_name}")
+    warnings.warn(
+        "func_utils.from_name() is deprecated. Please use Disassembler.get_function_by_name() instead.",
+        DeprecationWarning
+    )
+    try:
+        return dis.get_function_by_name(func_name, ignore_underscore=ignore_underscore)
+    except dragodis.NotExistError as e:
+        raise ValueError(str(e))
 
 
 @property

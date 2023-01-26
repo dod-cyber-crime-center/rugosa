@@ -4,10 +4,13 @@ Utilities for working with encoded/encrypted strings.
 from __future__ import annotations
 import logging
 import re
+from string import printable as printable_chars
 import sys
 from typing import Iterable, Tuple, Union
 
 import dragodis
+from rugosa.emulation import Emulator
+
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +25,7 @@ CODE_PAGES = [
     "koi8-r", "iso8859-5", "cp1251", "mac-cyrillic",  # Cyrillic (cp866, cp855 omitted)
     "cp949",  # Korean (johab, iso2022-kr omitted)
     "iso8859-6", "cp1256",  # Arabic (cp864, cp720 omitted)
-    "latin1",  # If all else fails, latin1 is always is successful.
+    "latin1",  # If all else fails, latin1 is always successful.
 ]
 # fmt: on
 
@@ -119,6 +122,220 @@ def get_terminated_bytes(dis: dragodis.Disassembler, addr: int, unit_width: int 
     return dis.get_bytes(addr, terminator_address - addr)
 
 
+_api_names = [
+    ("GetModuleHandleA", 0),
+    ("GetModuleHandleW", 0),
+    ("LoadLibraryA", 0),
+    ("LoadLibraryW", 0),
+    ("GetProcAddress", 1),
+]
+
+
+def find_api_resolve_strings(dis: dragodis.Disassembler) -> Iterable[Tuple[int, str]]:
+    """
+    Finds strings used in API resolution functions (e.g. GetProcAddress)
+
+    :param dis: Dragodis disassembler
+
+    :yields: (address, string) for API string.
+    """
+    seen = set()
+    emulator = Emulator(dis)
+    for api_name, arg_index in _api_names:
+        try:
+            imp = dis.get_import(api_name)
+        except dragodis.NotExistError:
+            continue
+        for address in imp.calls_to:
+            try:
+                ctx = emulator.context_at(address)
+                args = ctx.function_args
+            except dragodis.NotExistError as e:
+                logger.warning(f"Failed to emulate at 0x{address:08x}: {e}")
+                continue
+
+            if len(args) <= arg_index:
+                continue
+
+            ptr = args[arg_index].value
+            if ptr in seen:
+                continue
+
+            # Only include strings actually found in sample statically.
+            if not dis.is_loaded(ptr):
+                continue
+
+            try:
+                string = ctx.memory.read_string(ptr, wide=api_name.endswith("W"))
+                yield ptr, string
+                seen.add(ptr)
+            except UnicodeDecodeError:
+                continue
+
+
+def is_library_string(dis: dragodis.Disassembler, address: int) -> bool:
+    """
+    Attempts to determine whether the string at the given address is only used in library functions.
+
+    :param dis: Dragodis disassembler
+    :param address: Address pointing to string.
+    :return:
+    """
+    found_function = False
+    for ref in dis.references_to(address):
+        try:
+            func = dis.get_function(ref.from_address)
+        except dragodis.NotExistError:
+            continue
+        found_function = True
+        if not func.is_library:
+            return False
+    return found_function
+
+
+def is_code_string(dis: dragodis.Disassembler, address: int, *, code_segment=None):
+    """
+    Determines whether the string has a reference to an instruction in the code segment.
+
+    :param dis: Dragodis disassembler
+    :param address: Address of the string
+    :param code_segment: Segment containing instruction code.
+        (Determined using entry point if not provided)
+    :return:
+    """
+    if not code_segment:
+        code_segment = dis.get_segment(dis.entry_point)
+    return any(ref.from_address in code_segment for ref in dis.references_to(address))
+
+
+def find_user_strings(
+        dis: dragodis.Disassembler, min_length=3, ignore_api=True, ignore_library=True, printable=True, unique=False,
+        in_code=True,
+) -> Iterable[Tuple[int, str]]:
+    """
+    Finds user strings that are used within the code segment.
+
+    :param dis: Dragodis disassembler
+    :param min_length: The minimum length to count as a string.
+    :param ignore_api: Whether to attempt to ignore strings used for API resolution (e.g. GetProcAddress parameters)
+        NOTE: This can be slow. Disable this option if performance is a concern.
+    :param ignore_library: Whether to ignore strings only used in library functions.
+    :param printable: Whether to only include strings printable as ASCII.
+    :param unique: Whether to only include the first instance of a string.
+        (ie. ignore the same string just with a different addresses)
+    :param in_code: Whether to only include strings referenced in the main user code.
+
+    :yields: (address, string)
+    """
+    seen = set()
+    code_segment = dis.get_segment(dis.entry_point)
+    api_strings = None
+
+    for entry in dis.strings(min_length):
+        string = str(entry)
+
+        if unique:
+            if string in seen:
+                continue
+            seen.add(string)
+
+        # NOTE: Using string.printable set over str.isprintable() since the latter doesn't count whitespace characters like \n
+        if printable and not all(c in printable_chars for c in string):
+            continue
+
+        if in_code and not is_code_string(dis, entry.address, code_segment=code_segment):
+            continue
+
+        if ignore_library and is_library_string(dis, entry.address):
+            continue
+
+        if ignore_api:
+            if api_strings is None:
+                api_strings = list(find_api_resolve_strings(dis))
+            if any(address == entry.address for address, _ in api_strings):
+                continue
+
+        yield entry.address, string
+
+
+def _num_raw_bytes(string: str) -> int:
+    """
+    Returns the number of raw bytes found in the given unicode string
+    """
+    count = 0
+    for char in string:
+        char = char.encode("unicode-escape")
+        count += char.startswith(b"\\x") + char.startswith(b"\\u") * 2
+    return count
+
+
+def detect_encoding(data: bytes, code_pages=None) -> str:
+    """
+    Detects the best guess string encoding for the given data.
+    NOTE: This will default to "latin1" as a fallback.
+
+    :param data: Data to detect encoding
+    :param code_pages: List of possible codecs to try.
+        There is a default, but feel free to provide your own.
+
+    :returns: Decoded string and encoding used.
+    """
+    if code_pages is None:
+        code_pages = CODE_PAGES
+    best_score = len(data)  # lowest score is best
+    best_code_page = None
+    best_output = None
+    for code_page in code_pages:
+        try:
+            output = data.decode(code_page).rstrip(u"\x00")
+        except UnicodeDecodeError:
+            # If it's UTF we may need to strip away some null characters before decoding.
+            if code_page in ("utf-16-le", "utf-16-be", "utf-32-le", "utf-32-be"):
+                data_copy = data
+                while data_copy and data_copy[-1] == 0:
+                    try:
+                        data_copy = data_copy[:-1]
+                        output = data_copy.decode(code_page).rstrip(u"\x00")
+                    except UnicodeDecodeError:
+                        continue
+                    break  # successfully decoded
+                else:
+                    continue
+            # otherwise the code page isn't correct.
+            else:
+                continue
+
+        score = _num_raw_bytes(output)
+        if not best_output or score < best_score:
+            best_score = score
+            best_output = output
+            best_code_page = code_page
+
+    if best_output:
+        return best_code_page
+
+    # We shouldn't hit here since "latin1" should at least hit, but just incase...
+    return "unicode_escape"
+
+
+def force_to_string(data: bytes, code_pages=None) -> str:
+    """
+    Forces given bytes into a string using best guess encoding.
+
+    :param data: Bytes to convert to string.
+    :param code_pages: List of possible codecs to try.
+        There is a default, but feel free to provide your own.
+
+    :return: Decoded string.
+    """
+    if code_pages is None:
+        code_pages = CODE_PAGES
+    try:
+        return data.decode(detect_encoding(data, code_pages=code_pages))
+    except UnicodeDecodeError:
+        return data.decode("latin1")
+
+
 class DecodedString:
     """
     Holds information about a decoded/decrypted string.
@@ -144,7 +361,7 @@ class DecodedString:
     ):
         self.data = dec_data
         self.enc_data = enc_data
-        self.encoding = encoding or self.detect_encoding(dec_data)
+        self.encoding = encoding or detect_encoding(dec_data)
         self.enc_source = enc_source
         self.dec_source = dec_source
 
@@ -156,57 +373,6 @@ class DecodedString:
 
     def __bytes__(self):
         return self.data
-
-    def _num_raw_bytes(self, string: str) -> int:
-        """
-        Returns the number of raw bytes found in the given unicode string
-        """
-        count = 0
-        for char in string:
-            char = char.encode("unicode-escape")
-            count += char.startswith(b"\\x") + char.startswith(b"\\u") * 2
-        return count
-
-    def detect_encoding(self, data: bytes) -> str:
-        """
-        Detects and decodes data using best guess encoding.
-
-        :returns: Decoded string and encoding used.
-        """
-        best_score = len(data)  # lowest score is best
-        best_code_page = None
-        best_output = None
-        for code_page in CODE_PAGES:
-            try:
-                output = data.decode(code_page).rstrip(u"\x00")
-            except UnicodeDecodeError:
-                # If it's UTF we may need to strip away some null characters before decoding.
-                if code_page in ("utf-16-le", "utf-16-be", "utf-32-le", "utf-32-be"):
-                    data_copy = data
-                    while data_copy and data_copy[-1] == 0:
-                        try:
-                            data_copy = data_copy[:-1]
-                            output = data_copy.decode(code_page).rstrip(u"\x00")
-                        except UnicodeDecodeError:
-                            continue
-                        break  # successfully decoded
-                    else:
-                        continue
-                # otherwise the code page isn't correct.
-                else:
-                    continue
-
-            score = self._num_raw_bytes(output)
-            if not best_output or score < best_score:
-                best_score = score
-                best_output = output
-                best_code_page = code_page
-
-        if best_output:
-            return best_code_page
-
-        # We shouldn't hit here since "latin1" should at least hit, but just incase...
-        return "unicode_escape"
 
     @property
     def display_name(self) -> str:
