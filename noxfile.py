@@ -5,13 +5,22 @@ Usage:
   1. Install "nox"
   2. Run "nox" or "nox -s test"
 """
+import os
 
 import nox
+
+
+def _install_local_deps(session):
+    """Install local dc3 dependencies."""
+    for path in ["../dc3_pyhidra_github", "../dc3_dragodis_github"]:
+        if os.path.exists(path):
+            session.install(path)
 
 
 @nox.session(python="3.8")
 def test(session):
     """Run pytests"""
+    _install_local_deps(session)
     session.install("-e", ".[testing]")
     session.run("pytest")
 

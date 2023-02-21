@@ -2,7 +2,7 @@
 All notable changes to this project will be documented in this file.
 
 
-## [Unreleased]
+## [0.7.1] - 2023-02-21
 - Fixed emulation of floating point opcodes.
 - Fixed bug in Ghidra plugin setup handling.
 
@@ -99,7 +99,8 @@ All notable changes to this project will be documented in this file.
 - Migrated the majority of Kordesii functionality to work with Dragodis.
 
 
-[Unreleased]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.7.0...HEAD
+[Unreleased]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.7.1...HEAD
+[0.7.1]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.7.0...0.7.1
 [0.7.0]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.6.1...0.7.0
 [0.6.1]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.6.0...0.6.1
 [0.6.0]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.5.1...0.6.0
