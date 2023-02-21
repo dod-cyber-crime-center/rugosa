@@ -11,15 +11,14 @@ def setup(launcher):
     """
     Run by pyhidra launcher to install our plugin.
     """
-    if isinstance(launcher, pyhidra.GuiPyhidraLauncher):
-        source_path = Path(__file__).parent / "java" / "plugin"
-        details = pyhidra.ExtensionDetails(
-            name="rugosa",
-            description="Rugosa Emulator Plugin",
-            author="Department of Defence Cyber Crime Center (DC3)",
-            plugin_version=__version__,
-        )
-        launcher.install_plugin(source_path, details)
+    source_path = Path(__file__).parent / "java" / "plugin"
+    details = pyhidra.ExtensionDetails(
+        name="rugosa",
+        description="Rugosa Emulator Plugin",
+        author="Department of Defence Cyber Crime Center (DC3)",
+        plugin_version=__version__,
+    )
+    launcher.install_plugin(source_path, details)
 
 
 def pre_launch():

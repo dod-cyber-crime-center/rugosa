@@ -48,7 +48,7 @@ class VariableMap(object):
         elif isinstance(addr_or_name, int):
             return self._variables[addr_or_name]
         else:
-            raise ValueError("Invalid variable name or address: {!r}".format(addr_or_name))
+            raise KeyError(f"Invalid variable name or address: {addr_or_name!r}")
 
     def __len__(self):
         return len(self._variables)
@@ -91,7 +91,8 @@ class VariableMap(object):
             addr = addr_or_name
             return addr in self._variables
         else:
-            raise ValueError("Invalid variable name or address: {!r}".format(addr_or_name))
+            # We could have floats or None checked if dealing with a FPU register.
+            return False
 
     def __iter__(self) -> Iterable["Variable"]:
         return iter(self._variables.values())

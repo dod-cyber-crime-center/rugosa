@@ -244,7 +244,7 @@ def FLD(cpu_context: ProcessorContext, instruction: Instruction):
     mnem = instruction.mnem
     operands = instruction.operands
 
-    value = orig_value = operands[0].value if operands else None
+    value = orig_value = operands[-1].value if operands else None
     if mnem == "fld":
         value = utils.int_to_float(value)
     elif mnem == "fild":
@@ -300,8 +300,8 @@ def FST(cpu_context: ProcessorContext, instruction: Instruction):
         value = int(value)
     else:
         value = utils.float_to_int(value)
-    operands[0].value = value
-    logger.debug("Storing: %f -> %d -> %s", orig_value, value, operands[0].text)
+    operands[-1].value = value
+    logger.debug("Storing: %f -> %d -> %s", orig_value, value, operands[-1].text)
     if mnem.endswith("p"):
         cpu_context.registers.fpu.pop()
 
@@ -363,8 +363,8 @@ def FXCH(cpu_context: ProcessorContext, instruction: Instruction):
         st0 = 0.0
 
     if operands:
-        opvalue = operands[0].value
-        cpu_context.registers.st0, operands[0].value = opvalue, st0
+        opvalue = operands[-1].value
+        cpu_context.registers.st0, operands[-1].value = opvalue, st0
         logger.debug("exchange %f <-> %f", st0, opvalue)
     else:
         st1 = cpu_context.registers.st1

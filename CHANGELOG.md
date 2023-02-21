@@ -2,6 +2,11 @@
 All notable changes to this project will be documented in this file.
 
 
+## [Unreleased]
+- Fixed emulation of floating point opcodes.
+- Fixed bug in Ghidra plugin setup handling.
+
+
 ## [0.7.0] - 2023-01-26
 - Add `movsq` opcode support (@ddash-ct)
 - Added utility functions for analyzing strings:
