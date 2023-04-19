@@ -389,61 +389,28 @@ def DEC(cpu_context: ProcessorContext, instruction: Instruction):
     operands[0].value = result & mask
 
 
-@opcode
-def DIV(cpu_context: ProcessorContext, instruction: Instruction):
-    """
-    Divide
-
-    rax / op1 -> rax (rdx holds remainder)
-    """
-    RAX_REG_SIZE_MAP = {8: "rax", 4: "eax", 2: "ax", 1: "al"}
-    RDX_REG_SIZE_MAP = {8: "rdx", 4: "edx", 2: "dx"}
-
-    operands = instruction.operands
-    divisor = operands[0].value
-    width = operands[0].width
-    if divisor == 0:
-        # Log the instruction for a DIV / 0 error
-        logger.debug("DIV / 0")
-        return
-
-    # We actually need to do some doctoring with DIV as operand 0 is implied as the EAX register of
-    # a certain size.
-    rax_str = RAX_REG_SIZE_MAP[width]
-    dividend = cpu_context.registers[rax_str]
-
-    result = (dividend // divisor) & utils.get_mask(width)
-    remainder = (dividend % divisor) & utils.get_mask(width)
-    logger.debug("0x%X / 0x%X = 0x%X", dividend, divisor, result)
-    if width == 1:
-        # Result stored in AL, remainder stored in AH
-        cpu_context.registers.al = result
-        cpu_context.registers.ah = remainder
-    else:
-        rdx_str = RDX_REG_SIZE_MAP[width]
-        cpu_context.registers[rax_str] = result
-        cpu_context.registers[rdx_str] = remainder
-
-
-@opcode
-def IDIV(cpu_context: ProcessorContext, instruction: Instruction):
-    """
-    Signed Division
-    """
+@opcode("div")
+@opcode("idiv")
+def _div(cpu_context: ProcessorContext, instruction: Instruction):
+    signed = instruction.mnem == "idiv"
     RAX_REG_SIZE_MAP = {8: "rax", 4: "eax", 2: "ax", 1: "al"}
     RDX_REG_SIZE_MAP = {8: "rdx", 4: "edx", 2: "dx"}
 
     operands = instruction.operands
     # Need to obtain the width of the divisor, to determine the width of the dividend
     width = operands[-1].width
-    divisor = utils.signed(operands[-1].value, width)
+    divisor = operands[-1].value
+    if signed:
+        divisor = utils.signed(divisor, width)
     if divisor == 0:
         logger.debug("DIV / 0")
         return
 
     if width == 1:
         # When dividing by a 8-bit value, use AX
-        dividend = utils.signed(cpu_context.registers.ax, 2)
+        dividend = cpu_context.registers.ax
+        if signed:
+            dividend = utils.signed(dividend, 2)
         result_reg = "al"
         remainder_reg = "ah"
 
@@ -453,16 +420,16 @@ def IDIV(cpu_context: ProcessorContext, instruction: Instruction):
         # When dividing by 64-bits -> combine RDX:RAX
         rax_str = RAX_REG_SIZE_MAP[width]
         rdx_str = RDX_REG_SIZE_MAP[width]
-        dividend = utils.signed(
-            (cpu_context.registers[rdx_str] << (width * 8)) | cpu_context.registers[rax_str],
-            width * 2
-        )
+        dividend = (cpu_context.registers[rdx_str] << (width * 8)) | cpu_context.registers[rax_str]
+        if signed:
+            dividend = utils.signed(dividend, width * 2)
         result_reg = rax_str
         remainder_reg = rdx_str
 
-    result = int(dividend / divisor) & utils.get_mask(width)
-    remainder = (dividend - (int(dividend / divisor) * divisor)) & utils.get_mask(width)
-    logger.debug("0x%X / 0x%X = 0x%X", dividend, divisor, result)
+    result = (dividend // divisor) & utils.get_mask(width)
+    remainder = (dividend % divisor) & utils.get_mask(width)
+    logger.debug("0x%X / 0x%X = 0x%X R 0x%X", dividend, divisor, result, remainder)
+
     cpu_context.registers[result_reg] = result
     cpu_context.registers[remainder_reg] = remainder
 
@@ -475,16 +442,16 @@ def DIVSD(cpu_context: ProcessorContext, instruction: Instruction):
     op1 / op2 -> op1
     """
     operands = instruction.operands
-    opvalue1 = utils.int_to_float(operands[0].value)
-    opvalue2 = utils.int_to_float(operands[1].value)
+    dividend = utils.int_to_float(operands[0].value)
+    divisor = utils.int_to_float(operands[1].value)
     # Because there is no guarantee that the registers/memory have been properly initialized, ignore DIV / 0 errors.
-    if opvalue2 == 0:
+    if divisor == 0:
         # Log DIV / 0 error
         logger.debug("DIV / 0")
         return
 
-    result = opvalue1 // opvalue2
-    logger.debug("0x%X / 0x%X = 0x%X", opvalue1, opvalue2, result)
+    result = dividend / divisor
+    logger.debug("%f / %f = %f", dividend, divisor, result)
     result = utils.float_to_int(result)
     operands[0].value = result
 

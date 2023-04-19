@@ -2,6 +2,10 @@
 All notable changes to this project will be documented in this file.
 
 
+## [Unreleased]
+- Fixed implementation of `div` opcode.
+
+
 ## [0.7.1] - 2023-02-21
 - Fixed emulation of floating point opcodes.
 - Fixed bug in Ghidra plugin setup handling.
