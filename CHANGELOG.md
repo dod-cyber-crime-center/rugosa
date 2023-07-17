@@ -1,7 +1,7 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.8.0] - 2023-07-17
 - Added support for ymm* and zmm* registers.
 - Added support vector bitwise instructions:
   - `vmovaps`
@@ -115,7 +115,8 @@ All notable changes to this project will be documented in this file.
 - Migrated the majority of Kordesii functionality to work with Dragodis.
 
 
-[Unreleased]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.7.2...HEAD
+[Unreleased]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.8.0...HEAD
+[0.8.0]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.7.2...0.8.0
 [0.7.2]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.7.1...0.7.2
 [0.7.1]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.7.0...0.7.1
 [0.7.0]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.6.1...0.7.0

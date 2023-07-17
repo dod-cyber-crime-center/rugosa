@@ -5,4 +5,4 @@ from .strings import *
 import rugosa.re as re
 import rugosa.yara as yara
 
-__version__ = "0.7.2"
+__version__ = "0.8.0"
