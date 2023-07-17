@@ -1093,6 +1093,11 @@ def LEA(cpu_context: ProcessorContext, instruction: Instruction):
 @opcode("movdqu")
 @opcode("movupd")
 @opcode("movups")
+@opcode("vmovaps")
+@opcode("vmovdqa")
+@opcode("vmovdqu")
+@opcode("vmovupd")
+@opcode("vmovups")
 def _mov(cpu_context: ProcessorContext, instruction: Instruction):
     """
     Handle the MOV, MOVZX, MOVA*, MOVD*, MOVU* instructions in the same manner.
@@ -1100,7 +1105,7 @@ def _mov(cpu_context: ProcessorContext, instruction: Instruction):
     MOVZX is a zero extend, but this logic makes no real sense in python.
 
     NOTE: Since the widths are already taken into account when the operand values are retrieved
-    or set, the logic for most mov* instructions are the same.
+    or set, the logic for most (v)mov* instructions are the same.
     """
     operands = instruction.operands
     opvalue2 = operands[1].value
@@ -2029,11 +2034,15 @@ def XCHG(cpu_context: ProcessorContext, instruction: Instruction):
 
 @opcode("xor")
 @opcode("pxor")
+@opcode("vpxor")
+@opcode("xorps")
+@opcode("vxorps")
 def _xor(cpu_context: ProcessorContext, instruction: Instruction):
     """ XOR """
     operands = instruction.operands
-    opvalue1 = operands[0].value
-    opvalue2 = operands[1].value
+    # Xor the last 2 operands
+    opvalue1 = operands[-2].value
+    opvalue2 = operands[-1].value
     width = get_max_operand_size(operands)
     result = opvalue1 ^ opvalue2
 
@@ -2046,7 +2055,20 @@ def _xor(cpu_context: ProcessorContext, instruction: Instruction):
         cpu_context.jcccontext.update_flag_opnds(["cf", "zf", "sf", "of", "pf"], operands)
 
     logger.debug("0x%X ^ 0x%X = 0x%X", opvalue1, opvalue2, result)
+    # Store result in first operand.
     operands[0].value = result
+
+
+@opcode
+def VZEROUPPER(cpu_context: ProcessorContext, instruction: Instruction):
+    """
+    Zero Upper Bits of YMM and ZMM Registers
+    """
+    reg_range = 16 if cpu_context.bitness == 64 else 8
+    for i in range(reg_range):
+        cpu_context.registers[f"ymm{i}"] &= 0xffffffffffffffffffffffffffffffff
+        cpu_context.registers[f"zmm{i}"] &= 0xffffffffffffffffffffffffffffffff
+    logger.debug(f"Zeroed out high 128 bits for registers ymm0-ymm{reg_range-1} and zmm0-ymm{reg_range-1}")
 
 
 # Global helper functions

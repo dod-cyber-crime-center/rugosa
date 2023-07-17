@@ -1,6 +1,18 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+- Added support for ymm* and zmm* registers.
+- Added support vector bitwise instructions:
+  - `vmovaps`
+  - `vmovdqa`
+  - `vmovdqu`
+  - `vmovupd`
+  - `vmovups`
+  - `vpxor`
+  - `xorps`
+  - `vxorps`
+  - `vzeroupper`
 
 ## [0.7.2] - 2023-04-19
 - Fixed implementation of `div` opcode.
