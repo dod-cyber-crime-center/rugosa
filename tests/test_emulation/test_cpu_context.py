@@ -243,6 +243,7 @@ def test_cpu_context_arm(disassembler):
     assert sorted(context.variables.names) in (
         ["off_10544"],
         ["PTR_string01_00010544", "inlen", "string01"],
+        ["DAT_00010544", "inlen", "string01"],
     )
 
     # Test getting context with follow_loops by pulling context at end of xor algorithm.

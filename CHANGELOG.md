@@ -1,6 +1,12 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+- Tested on Ghidra 10.3.2
+- Added support for YARA version 4.3 in `rugosa.yara` utility.
+  - Both the newer `StringMatch` objects and older tuple results for `.strings` are supported based on the `legacy_strings` flag set during a call to `.match()`. (defaults to older for backwards compatibility)
+
+
 ## [0.8.0] - 2023-07-17
 - Added support for ymm* and zmm* registers.
 - Added support vector bitwise instructions:

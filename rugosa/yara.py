@@ -22,13 +22,17 @@ usage::
             # ...
 """
 
+from __future__ import annotations
 import logging
-from typing import Iterable, List, Tuple, Union
+from typing import Iterable, List, Tuple, Union, Any
 
 import dragodis
 from dragodis.interface import Function
 import yara
 from yara import *
+
+YARA_VERSION = __version__ = yara.YARA_VERSION
+YARA_VERSION_HEX = yara.YARA_VERSION_HEX
 
 
 logger = logging.getLogger(__name__)
@@ -36,9 +40,77 @@ logger = logging.getLogger(__name__)
 READ_LENGTH = 10485760  # 10 MB
 
 
+class StringMatchInstance:
+    """
+    Patches yara.StringMatchInstance to convert strings offsets to virtual addresses.
+    """
+
+    def __init__(self, string_match_instance, dis: dragodis.Disassembler, offset=None, file_offset=False):
+        self._string_match_instance = string_match_instance
+        self._dis = dis
+        self._offset = offset
+        self._file_offset = file_offset
+        self.__offset = None
+
+    def __getattr__(self, item):
+        return getattr(self._string_match_instance, item)
+
+    def __str__(self):
+        return str(self._string_match_instance)
+
+    def __repr__(self):
+        return repr(self._string_match_instance)
+
+    @property
+    def offset(self) -> int:
+        """
+        Patched yara.StringMatchInstance.offset to provide address instead.
+        """
+        if self.__offset is None:
+            offset = self._string_match_instance.offset
+            if self._offset is not None:
+                offset += self._offset
+            if self._file_offset:
+                offset = self._dis.get_virtual_address(offset)
+            addr = self._dis.get_line(offset).address
+            self.__offset = addr
+        return self.__offset
+
+
+class StringMatch:
+    """
+    Patches yara.StringMatch to convert strings offsets to virtual addresses.
+    """
+
+    def __init__(self, string_match, dis: dragodis.Disassembler, offset=None, file_offset=False):
+        self._string_match = string_match
+        self._dis = dis
+        self._offset = offset
+        self._file_offset = file_offset
+        self._instances = None
+
+    def __getattr__(self, item):
+        return getattr(self._string_match, item)
+
+    def __str__(self):
+        return str(self._string_match)
+
+    def __repr__(self):
+        return repr(self._string_match)
+
+    @property
+    def instances(self) -> List[StringMatchInstance]:
+        if self._instances is None:
+            self._instances = [
+                StringMatchInstance(string_match_instance, self._dis, offset=self._offset, file_offset=self._file_offset)
+                for string_match_instance in self._string_match.instances
+            ]
+        return self._instances
+
+
 class Match:
     """
-    Patches yara.Match to provide convert string offsets to virtual addresses.
+    Patches yara.Match to  convert string offsets to virtual addresses.
 
     NOTE: We can't inherit yara.Match because they don't expose that class.
 
@@ -48,11 +120,12 @@ class Match:
         and should be converted.
     """
 
-    def __init__(self, match_object, dis: dragodis.Disassembler, offset=None, file_offset=False):
+    def __init__(self, match_object, dis: dragodis.Disassembler, offset=None, file_offset=False, legacy_strings=False):
         self._match = match_object
         self._dis = dis
         self._offset = offset
         self._file_offset = file_offset
+        self._legacy_strings = legacy_strings
         self._strings = None
 
     def __getattr__(self, item):
@@ -65,9 +138,15 @@ class Match:
         return repr(self._match)
 
     @property
-    def strings(self):
-        # Before returning strings, fixup the offsets to be virtual addresses.
-        if self._strings is None:
+    def strings(self) -> Union[List[Tuple[int, Any, Any]], List[StringMatch]]:
+        if self._strings is not None:
+            return self._strings
+
+        self._strings = []
+
+        # YARA < 4.3.0 stored strings as tuples containing (<offset>, <string identifier>, <string data>)
+        if YARA_VERSION < "4.3.0":
+            # Before returning strings, fixup the offsets to be virtual addresses.
             self._strings = []
             for offset, identifier, data in self._match.strings:
                 if self._offset is not None:
@@ -76,6 +155,18 @@ class Match:
                     offset = self._dis.get_virtual_address(offset)
                 addr = self._dis.get_line(offset).address
                 self._strings.append((addr, identifier, data))
+        else:
+            strings = [
+                StringMatch(string_match, self._dis, self._offset, self._file_offset)
+                for string_match in self._match.strings
+            ]
+            if self._legacy_strings:
+                for string_match in strings:
+                    for instance in string_match.instances:
+                        self._strings.append((instance.offset, string_match.identifier, instance.matched_data))
+            else:
+                self._strings = strings
+
         return self._strings
 
 
@@ -118,7 +209,9 @@ class Rules:
 
     def match(
             self, dis: dragodis.Disassembler, *args,
-            input_offset=False, offset: int = None, segment: Union[str, int] = None, **kwargs
+            input_offset=False, offset: int = None, segment: Union[str, int] = None,
+            legacy_strings=True,
+            **kwargs
     ) -> List[Match]:
         """
         Patched to use our patched Match() object and allow for automatically running
@@ -130,8 +223,13 @@ class Rules:
             :param input_offset: Whether to apply input file offset to string offsets.
             :param offset: Optional offset to offset string offsets by.
             :param segment: Name or EA of segment to match to.
+            :param legacy_strings: Whether to present Match.strings as a tuple of
+                (<offset>, <string identifier>, <string data>) as it was presented before YARA 4.3.0.
             :param **kwargs: Keyword arguments to pass to underlying yara.match() call.
         """
+        if not legacy_strings and YARA_VERSION < "4.3.0":
+            raise ValueError(f"Turning off legacy strings is only valid for YARA < 4.3.0, got {YARA_VERSION}")
+
         # Run on segment.
         if segment:
             segment = dis.get_segment(segment)
@@ -143,7 +241,7 @@ class Rules:
             input_offset = True
 
         return [
-            Match(match, dis, offset=offset, file_offset=input_offset)
+            Match(match, dis, offset=offset, file_offset=input_offset, legacy_strings=legacy_strings)
             for match in self._rules.match(*args, **kwargs)
         ]
 
@@ -156,7 +254,7 @@ class Rules:
         :returns: Tuple containing: (offset, identifier)
         """
         matched_strings = []
-        for match in self.match(*args, **kwargs):
+        for match in self.match(*args, legacy_strings=True, **kwargs):
             for offset, identifier, _ in match.strings:
                 matched_strings.append((offset, identifier))
         return matched_strings
@@ -166,7 +264,7 @@ class Rules:
         Iterates functions that match the given rule text.
         """
         cache = set()
-        for match in self.match(dis, *args, **kwargs):
+        for match in self.match(dis, *args, legacy_strings=True, **kwargs):
             for ea, _, _ in match.strings:
                 try:
                     func = dis.get_function(ea)

@@ -87,7 +87,7 @@ def test_function_signature(disassembler):
     func_sig = context.get_function_signature(func_ea=xor_func_ea)
     assert func_sig.declaration in (
         "_BYTE *__cdecl sub_401000(_BYTE *a1, char a2);",
-        "undefined cdecl FUN_00401000(byte * param_1, byte param_2)"
+        "undefined __cdecl FUN_00401000(byte * param_1, byte param_2)"
     )
     assert func_sig.calling_convention == "__cdecl"
     assert func_sig.return_type in ("byte *", "undefined")
@@ -110,6 +110,7 @@ def test_function_signature(disassembler):
     assert func_sig.declaration in (
         "_BYTE *__cdecl sub_401000(_BYTE *a1, char a2, INT new_arg);",
         "undefined cdecl FUN_00401000(byte * param_1, byte param_2, int new_arg)",
+        "undefined __cdecl FUN_00401000(byte * param_1, byte param_2, int new_arg)",
     )
     args = func_sig.arguments
     assert len(args) == 3
