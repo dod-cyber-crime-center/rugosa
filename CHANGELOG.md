@@ -1,7 +1,7 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.10.0] - 2023-11-29
 - Tested on Ghidra 10.4
 - Added `create_function()` utility function in `rugosa.func_utils`. This attempts to define a function containing the given address by looking for common start bounds. 
 
@@ -126,7 +126,8 @@ All notable changes to this project will be documented in this file.
 - Migrated the majority of Kordesii functionality to work with Dragodis.
 
 
-[Unreleased]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.9.0...HEAD
+[Unreleased]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.10.0...HEAD
+[0.10.0]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.9.0...0.10.0
 [0.9.0]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.8.0...0.9.0
 [0.8.0]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.7.2...0.8.0
 [0.7.2]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.7.1...0.7.2
