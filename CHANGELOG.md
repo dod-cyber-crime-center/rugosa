@@ -1,6 +1,11 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+- Tested on Ghidra 10.4
+- Added `create_function()` utility function in `rugosa.func_utils`. This attempts to define a function containing the given address by looking for common start bounds. 
+
+
 ## [0.9.0] - 2023-09-06
 - Tested on Ghidra 10.3.2
 - Added support for YARA version 4.3 in `rugosa.yara` utility.

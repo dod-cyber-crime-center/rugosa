@@ -82,7 +82,7 @@ class Variables:
 
             data_type = var.data_type
             if var.count > 1 and data_type != "func_ptr":
-                data_type += f"[{var.coune}]"
+                data_type += f"[{var.count}]"
             row[2] = data_type
 
             row[3] = str(var.size)

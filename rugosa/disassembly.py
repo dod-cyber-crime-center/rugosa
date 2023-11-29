@@ -68,7 +68,7 @@ def iter_dynamic_functions(dis: Disassembler) -> Iterable[Tuple[int, str]]:
         data_segment = dis.get_segment(".data")
     except NotExistError:
         return
-    for line in data_segment.lines:
+    for line in data_segment.lines():
         try:
             value = line.value
         except NotImplementedError:
