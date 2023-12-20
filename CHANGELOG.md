@@ -1,6 +1,10 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+# [Unreleased]
+- Fix bug in `stos` instructions to pull address from `rdi` instead of `edi` (@ddash-ct)
+
+
 ## [0.10.0] - 2023-11-29
 - Tested on Ghidra 10.4
 - Added `create_function()` utility function in `rugosa.func_utils`. This attempts to define a function containing the given address by looking for common start bounds. 

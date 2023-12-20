@@ -1926,41 +1926,41 @@ def STD(cpu_context: ProcessorContext, instruction: Instruction):
 
 @opcode
 def STOSB(cpu_context: ProcessorContext, instruction: Instruction):
-    """Store value in AL in the address pointed to by EDI"""
+    """Store value in AL in the address pointed to by RDI"""
     value = cpu_context.registers.al
-    addr = cpu_context.registers.edi
+    addr = cpu_context.registers.rdi
     logger.debug("Storing 0x%X into 0x%X", value, addr)
     cpu_context.memory.write(addr, bytes([value]))
     if cpu_context.registers.df:
-        cpu_context.registers.edi -= 1
+        cpu_context.registers.rdi -= 1
     else:
-        cpu_context.registers.edi += 1
+        cpu_context.registers.rdi += 1
 
 
 @opcode
 def STOSW(cpu_context: ProcessorContext, instruction: Instruction):
-    """Store value in AX in the address pointed to by EDI"""
+    """Store value in AX in the address pointed to by RDI"""
     value = cpu_context.registers.ax
-    addr = cpu_context.registers.edi
+    addr = cpu_context.registers.rdi
     logger.debug("Storing 0x%X into 0x%X", value, addr)
     cpu_context.memory.write(addr, value.to_bytes(2, cpu_context.byteorder))
     if cpu_context.registers.df:
-        cpu_context.registers.edi -= 2
+        cpu_context.registers.rdi -= 2
     else:
-        cpu_context.registers.edi += 2
+        cpu_context.registers.rdi += 2
 
 
 @opcode
 def STOSD(cpu_context: ProcessorContext, instruction: Instruction):
-    """Store value in EAX in the address pointed to by EDI"""
+    """Store value in EAX in the address pointed to by RDI"""
     value = cpu_context.registers.eax
-    addr = cpu_context.registers.edi
+    addr = cpu_context.registers.rdi
     logger.debug("Storing 0x%X into 0x%X", value, addr)
     cpu_context.memory.write(addr, value.to_bytes(4, cpu_context.byteorder))
     if cpu_context.registers.df:
-        cpu_context.registers.edi -= 4
+        cpu_context.registers.rdi -= 4
     else:
-        cpu_context.registers.edi += 4
+        cpu_context.registers.rdi += 4
 
 
 @opcode
