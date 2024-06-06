@@ -150,3 +150,35 @@ def test_streaming(disassembler):
         assert stream.seek(-5, os.SEEK_CUR) == 11
         assert context.memory.read(0x40C000 + 11, 5) == b"hello"
         assert stream.read(5) == b"hello"
+
+
+def test_read_write_string(disassembler):
+    emulator = Emulator(disassembler)
+    context = emulator.new_context()
+    memory = context.memory
+
+    addr = 0x00121FFB
+    memory.write(addr, b"helloworld\x00")
+    assert memory.read_string_bytes(addr) == b"helloworld"
+    assert memory.read_string(addr) == "helloworld"
+
+    addr = 0x00130000
+    memory.write_string(addr, "helloworld")
+    assert memory.read(addr, len(b"helloworld\x00")) == b"helloworld\x00"
+
+
+def test_read_write_int(disassembler):
+    emulator = Emulator(disassembler)
+    context = emulator.new_context()
+    memory = context.memory
+
+    addr = 0x00121FFB
+    memory.write(addr, b"\x01\x02\x03\x04\x05\x06\x07\x08")
+    assert memory.read_int(addr) == 0x4030201
+    assert memory.read_int(addr, 1) == 0x1
+    assert memory.read_int(addr, 2) == 0x201
+    assert memory.read_int(addr, 8) == 0x807060504030201
+
+    addr = 0x00130000
+    memory.write_int(addr, 0x4030201)
+    assert memory.read(addr, 4) == b"\x01\x02\x03\x04"

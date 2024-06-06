@@ -39,35 +39,38 @@ class PathNode:
         self._call_depth = 0          # the number of calls deep we are allowed to emulated
 
     @classmethod
-    def iter_all(cls, block: BasicBlock, _visited=None, _cache=None) -> Iterable[PathNode]:
+    def iter_all(cls, block: BasicBlock, root: int, _visited=None, _cache=None) -> Iterable[PathNode]:
         """
         Iterates all tail path nodes from a given block.
 
         :param block: Block to obtain all path nodes.
+        :param root: The root address of the flowchart.
         :param _visited: Internally used.
         :param _cache: Internally used.
 
         :yields: PathNode objects that represent the last entry of the path linked list.
         """
+        logger.debug("Visiting %s", block)
+
         if _cache is None:
             _cache = {}
 
         if _visited is None:
             _visited = set()
 
-        # Otherwise generate path nodes and cache results for next time.
         _visited.add(block.start)
 
         parents = list(block.blocks_to)
-        if not parents:
+        if not parents or block.start == root:
             yield cls(block, prev=None)
         else:
             for parent in parents:
                 if parent.start in _visited:
+                    logger.debug("Ignoring loop at %s", parent)
                     continue
 
                 # Create path nodes for each path of parent.
-                for parent_path in cls.iter_all(parent, _visited=_visited, _cache=_cache):
+                for parent_path in cls.iter_all(parent, root, _visited=_visited, _cache=_cache):
                     key = (block, parent_path)
                     try:
                         yield _cache[key]
@@ -160,11 +163,11 @@ class PathNode:
                 # Need to check if there is a prev, if not, then we need to create a default context here...
                 if self.prev:
                     self._context = self.prev.cpu_context(call_depth=call_depth, init_context=init_context)
-                    # Modify the context for the current branch if required
-                    self._context.prep_for_branch(self.block.start)
                 else:
                     self._context = deepcopy(init_context)
 
+                # Modify the context for the current branch if required
+                self._context.prep_for_branch(self.block.start)
                 self._context_address = self.block.start
 
             if self._context_address != end:
@@ -212,4 +215,7 @@ def iter_paths(flowchart: Flowchart, addr: int, _cache=None) -> Iterable[PathNod
         logger.debug(f"Unable to find block with ea: 0x{addr:08X}")
         return
 
-    yield from PathNode.iter_all(block, _cache=_cache)
+    logger.debug(f"Discovering block paths for %s", block)
+    for path in PathNode.iter_all(block, root=flowchart.start, _cache=_cache):
+        logger.debug(f"Found block path: %s", path)
+        yield path

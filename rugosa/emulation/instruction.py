@@ -58,6 +58,7 @@ class Instruction:
                 insn = self._cpu_context.emulator.disassembler.get_instruction(self.ip)
             except dragodis.NotExistError:
                 # TODO: Should we just allow the NotExistError error to happen?
+                # TODO: Add support for handling scenarios where we try to jump to an external symbol.
                 raise EmulationError(f"Failed to get instruction at 0x{self.ip:X}")
             self.__insn = insn
         return self.__insn

@@ -92,10 +92,10 @@ CSIDL_DICT_WIN10x64 = {
 }
 
 
-@builtin_func("SHGetFolderPathA")
-@builtin_func("SHGetFolderPathW")
-@builtin_func("SHGetSpecialFolderPathA")
-@builtin_func("SHGetSpecialFolderPathW")
+@builtin_func("SHGetFolderPathA", num_args=5)
+@builtin_func("SHGetFolderPathW", num_args=5)
+@builtin_func("SHGetSpecialFolderPathA", num_args=4)
+@builtin_func("SHGetSpecialFolderPathW", num_args=4)
 #typespec("SHFOLDERAPI SHGetFolderPathA(HWND hwnd, int csidl, HANDLE hToken, DWORD dwFlags,  LPSTR  pszPath);")
 #typespec("BOOL SHGetSpecialFolderPathA(HWND hwnd, LPSTR pszPath, int csidl, BOOL fCreate);")
 def sh_get_folder_path(cpu_context, func_name, func_args):

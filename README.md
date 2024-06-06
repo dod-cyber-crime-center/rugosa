@@ -1,11 +1,16 @@
 # Rugosa
 
-The next generation of [kordesii](https://github.com/Defense-Cyber-Crime-Center/kordesii). 
-This is a library (not a framework) for managing emulation and provides utilities 
-for interfacing with decompiled malware samples using [dragodis](https://github.com/Defense-Cyber-Crime-Center/dragodis).
+Rugosa is a static malware analysis library and tool developed using the disassembler-agnostic 
+[dragodis](https://github.com/dod-cyber-crime-center/dragodis) API. It incorporates a binary emulation framework along with
+utilities for regex and YARA searching, string extraction, and function discovery within disassembled code.
+These features enhance capabilities for comprehensive malware analysis and metadata extraction.
 
-Rugosa is meant to be used with an automation framework such as [DC3-MWCP](https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP),
-but can also be used in one-off scripting.
+Rugosa utilizes an in-house developed emulation engine entirely written in Python to achieve full control of the execution
+context and offer high-level abstractions for emulated artifacts. 
+It adopts a targeted approach employing branch path tracing to emulate portions of code without the need to fully
+emulate preceding code or modify the binary to accommodate such control flow.
+
+Currently, x86 and ARM processors are supported.
 
 
 ## Install
@@ -25,6 +30,14 @@ The following utilities are included with Rugosa:
 - [Regex](./docs/Regex.md)
 - [Strings](./rugosa/strings.py)
 - [YARA](./docs/YARA.md)
+
+
+## Interactive Shell
+
+Rugosa includes an interactive shell created with [cmd2](https://cmd2.readthedocs.io) for emulating and traversing a given binary.
+For more information on how to use the tool, please see the [documentation](./docs/Shell.md).
+
+![](docs/assets/shell.gif)
 
 
 ## Emulator Plugin

@@ -398,6 +398,8 @@ class Emulator:
         # we will force the branch to go in the other direction.
         current_block = start_block
         while current_block != end_block:
+            context.prep_for_branch(current_block.start)
+
             # We can't use execute() with start and end here because the end_ea of a block
             # is not actually in the block.
             for line in current_block.lines():
@@ -419,7 +421,6 @@ class Emulator:
                 # If no valid successor, force branch.
                 successor = valid_successors[0]
                 context.ip = successor.start
-                context.prep_for_branch(successor.start)
 
             current_block = successor
 
@@ -540,7 +541,7 @@ class Emulator:
 
     def context_at(self, address: int, *, depth=0, call_depth: int = 0, exhaustive=True, follow_loops=False,
                    init_context=None
-   ) -> Optional[ProcessorContext]:
+   ) -> ProcessorContext:
         """
         Obtain a cpu context for instructions up to, but not including, a given ea.
 
@@ -564,12 +565,14 @@ class Emulator:
             to get to the given ea address.
         :param init_context: Initial context to use to start emulation.
 
-        :return: cpu_context or None
+        :return: cpu_context
+        :raise ValueError: If no code paths were discovered at the given address. (Usually means address is not code.)
         """
         for ctx in self.iter_context_at(
                 address, depth=depth, call_depth=call_depth, exhaustive=exhaustive, follow_loops=follow_loops,
                 init_context=init_context):
             return ctx
+        raise ValueError(f"Failed to discover any code paths to address 0x{address:08x}")
 
     def iter_operand_value(self, address: int, index: int, **kwargs) -> Iterable[Tuple[ProcessorContext, int]]:
         """

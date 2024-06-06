@@ -20,6 +20,7 @@ WARNING:
 """
 
 import logging
+import typing
 
 import dragodis
 from dragodis import OperandType
@@ -27,11 +28,17 @@ from dragodis import OperandType
 from .. import utils
 from ..cpu_context import ProcessorContext
 from ..instruction import Instruction
-from ..registry import registrar
+from ..opcode import opcode_registrar
 
 # Dictionary containing opcode names -> function
 OPCODES = {}
-opcode = registrar(OPCODES, name="opcode")
+
+
+if typing.TYPE_CHECKING:
+    from ..opcode import opcode
+else:
+    # only assign this at runtime, so we can keep the stub docs and typing
+    opcode = opcode_registrar(OPCODES)
 
 
 logger = logging.getLogger(__name__)
@@ -577,8 +584,8 @@ def INC(cpu_context: ProcessorContext, instruction: Instruction):
     width = operands[0].width
     mask = utils.get_mask(width)
 
-    logger.debug("0x%X + 1 = 0x%X", opvalue1, result)
-    operands[0].value = result
+    logger.debug("0x%X + 1 = 0x%X", opvalue1, result & mask)
+    operands[0].value = result & mask
 
     cpu_context.registers.af = int(result & 0x0F == 0)
     cpu_context.registers.zf = int(result & mask == 0)

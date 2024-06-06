@@ -7,7 +7,7 @@ import warnings
 from copy import deepcopy
 import collections
 import logging
-from typing import List, Tuple, Optional, TYPE_CHECKING
+from typing import List, Tuple, Optional, TYPE_CHECKING, Any
 
 import dragodis
 from dragodis import NotExistError
@@ -86,12 +86,12 @@ class JccContext:
 
         return operands
 
-    def is_alt_branch(self, ip):
+    def is_alt_branch(self, ip) -> bool:
         """
         Test our IP against the branch information to determine if we are in the branch that would have been
         emulated or in the alternate branch.
         """
-        return self.condition_target_ea and self.condition_target_ea != ip
+        return bool(self.condition_target_ea and self.condition_target_ea != ip)
 
 
 class ProcessorContext:
@@ -128,8 +128,9 @@ class ProcessorContext:
         self.registers = registers
         self.jcccontext = JccContext()
         self.memory = Memory(self)
-        self.call_history = []  # Keeps track of function calls.
-        self.executed_instructions = []  # Keeps track of the instructions that have been executed.
+        self.branch_history: list[tuple[int, bool]] = []  # Keeps track of branches and whether they are forced.
+        self.call_history: list[tuple[int, str, tuple[str, Any]]] = []  # Keeps track of function calls.
+        self.executed_instructions: list[int] = []  # Keeps track of the instructions that have been executed.
         # TODO: Should memory_copies be stored in Memory object?
         self.memory_copies = collections.defaultdict(list)  # Keeps track of memory moves.
         self.bitness = emulator.disassembler.bit_size
@@ -165,6 +166,7 @@ class ProcessorContext:
         copy.variables = deepcopy(self.variables, memo)
         copy.objects = deepcopy(self.objects, memo)
         copy.actions = deepcopy(self.actions, memo)
+        copy.branch_history = list(self.branch_history)
         copy.call_history = list(self.call_history)
         copy.executed_instructions = list(self.executed_instructions)
         copy.memory_copies = self.memory_copies.copy()
@@ -179,6 +181,9 @@ class ProcessorContext:
         copy._sp_start = self._sp_start
 
         return copy
+
+    def copy(self):
+        return deepcopy(self)
 
     @property
     def ip(self) -> int:
@@ -232,7 +237,12 @@ class ProcessorContext:
         else:
             return None
 
-    def execute(self, start=None, end=None, call_depth: int = 0, max_instructions: int = None):
+    @property
+    def forced_path(self) -> bool:
+        """Whether the context path has a forced branch."""
+        return any(forced for _, forced in self.branch_history)
+
+    def execute(self, start=None, end=None, call_depth: int = 0, max_instructions: int = None) -> bool:
         """
         "Execute" the instruction at IP and store results in the context.
         The instruction pointer register will be set to the value supplied in .ip so that
@@ -241,6 +251,8 @@ class ProcessorContext:
         :param start: instruction address to start execution (defaults to currently set ip)
         :param end: instruction to stop execution (not including)
             (defaults to only run start)
+            Can also be an instruction mnemonic.
+            Can also be a callable function which takes a context and instruction object.
         :param call_depth: Number of function calls we are allowed to emulate into.
             When we hit our limit (depth is 0), emulation will no longer jump into function calls.
             (Defaults to not emulating into any function calls.)
@@ -249,6 +261,7 @@ class ProcessorContext:
             raising an RuntimeError.
             Uses max_instructions set by emulator constructor if not provided.
 
+        :returns: True if the given endpoint was hit.
         :raises RuntimeError: If maximum number of instructions get hit.
         """
         if max_instructions is None:
@@ -267,18 +280,31 @@ class ProcessorContext:
 
         # If end is provided, recursively run execute() until ip is end.
         if end is not None:
+            if isinstance(end, str):
+                if end == "ret":
+                    end = lambda _, insn: insn.is_terminal
+                else:
+                    opcode = end
+                    end = lambda _, insn: insn.mnem == opcode
+            if isinstance(end, int):
+                end_address = end
+                end = lambda ctx, _: ctx.ip == end_address
+            if not callable(end):
+                raise ValueError(f"end must be an integer or callable function, got {type(end)}")
             count = max_instructions
-            while self.ip != end:
-                instruction = self.instruction
+            instruction = self.instruction
+            while not end(self, instruction):
                 if instruction.is_terminal:
-                    return  # TODO: Should we be executing the terminal instruction?
+                    return False  # TODO: Should we be executing the terminal instruction?
                 instruction.execute()
                 count -= 1
                 if not count:
                     raise RuntimeError('Hit maximum number of instructions.')
-            return
+                instruction = self.instruction
+            return True
         else:
             self.instruction.execute()
+            return True
 
     def _execute_call(self, func_address: int, func_name: str = None, call_address: int = None):
         """
@@ -310,8 +336,12 @@ class ProcessorContext:
                     func_name = utils.sanitize_func_name(func_name)
                     call_hook = self.emulator.get_call_hook(func_name)
 
+            num_args = None
+            if call_hook and func_name and hasattr(call_hook, "num_args"):
+                num_args = call_hook.num_args(func_name)
+
             # Report on function call and their arguments.
-            arg_objs = self.get_function_args(func_address)
+            arg_objs = self.get_function_args(func_address, num_args)
             self.call_history.append((call_address, func_name, [(arg.name, arg.value) for arg in arg_objs]))
             arg_values = [arg_obj.value for arg_obj in arg_objs]
 
@@ -388,7 +418,11 @@ class ProcessorContext:
         """
         Modify this current context in preparation for a specific path.
         """
-        if self.jcccontext.is_alt_branch(bb_start_ea):
+        forced = self.jcccontext.is_alt_branch(bb_start_ea)
+        self.branch_history.append((bb_start_ea, forced))
+
+        # Modify operands to make forced branch more valid.
+        if forced:
             logger.debug("Modifying context for branch at 0x%08X", bb_start_ea)
             # Set the destination operand relative to the current context
             # to a valid value that makes this branch true.

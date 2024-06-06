@@ -3,6 +3,7 @@ Interface for creating register families.
 """
 
 from copy import deepcopy
+from typing import Iterable, Optional
 
 
 class Register:
@@ -33,16 +34,20 @@ class Register:
     0x0000000000000123
     """
 
-    def __init__(self, size, **masks):
+    def __init__(self, size, family_name: str = None, **masks):
         # We are modifying self.__dict__ directly to avoid triggering the
         # overwritten __setattr__()
         self_dict = self.__dict__
         self_dict["size"] = size
-        self_dict["_size_mask"] = 2 ** (8 * size) - 1
+        size_mask = 2 ** (8 * size) - 1
+        self_dict["_size_mask"] = size_mask
         self_dict["_value"] = 0
 
         _masks = {}
         for name, mask in list(masks.items()):
+            # Set name as family name if mask matches size.
+            if not family_name and mask == size_mask:
+                family_name = name
             # Get position of rightmost set bit in mask
             shift = 0
             if mask:
@@ -52,6 +57,7 @@ class Register:
                     shift += 1
             _masks[name.lower()] = (mask, shift)
         self_dict["_masks"] = _masks
+        self_dict["family_name"] = family_name or f"<{','.join(self.names)}>"
 
     def __deepcopy__(self, memo):
         copy = self.__new__(self.__class__)
@@ -61,6 +67,7 @@ class Register:
         copy_dict["_size_mask"] = self._size_mask
         copy_dict["_value"] = self._value
         copy_dict["_masks"] = dict(self._masks)
+        copy_dict["family_name"] = self.family_name
         return copy
 
     def __getattr__(self, reg_name):
@@ -111,6 +118,10 @@ class RegisterMap:
         self_dict = self.__dict__
         self_dict["_registers"] = registers
         self_dict["_reg_map"] = self._build_reg_map(registers)
+
+    def __iter__(self) -> Iterable[Register]:
+        """Iterates the underlying registers."""
+        yield from self._registers
 
     @staticmethod
     def _build_reg_map(registers):

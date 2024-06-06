@@ -41,6 +41,7 @@ def test_sanitize_func_name():
     assert utils.sanitize_func_name("sprintf") == "sprintf"
     assert utils.sanitize_func_name("_sprintf") == "sprintf"
     assert utils.sanitize_func_name("_sprintf_2") == "sprintf"
+    assert utils.sanitize_func_name("__imp_CreateFile") == "CreateFile"
 
 
 def test_is_func_ptr(disassembler):

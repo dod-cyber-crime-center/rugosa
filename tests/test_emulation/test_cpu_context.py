@@ -356,3 +356,22 @@ Cars and busses stalled in sand drifts.
 The jacket hung on the back of the wide chair.
 32908741328907498134712304814879837483274809123748913251236598123056231895712
 """
+
+
+@pytest.mark.parametrize("end,found,ip", [
+    (lambda ctx, insn: insn.mnem == "jz", True, 0x40100b),
+    ("jz", True, 0x40100b),
+    ("bogus", False, 0x40102a),
+    (0x40100b, True, 0x40100b),
+    (0xFFFFFF, False, 0x40102a),
+])
+def test_execute_end(disassembler, end, found, ip):
+    """
+    Tests execution with a callable endpoint.
+    """
+    emulator = Emulator(disassembler)
+    ctx = emulator.context_at(0x401000)
+    assert ctx.ip == 0x401000
+    assert ctx.instruction.mnem == "push"
+    assert ctx.execute(end=end) == found
+    assert ctx.ip == ip

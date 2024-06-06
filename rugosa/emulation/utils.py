@@ -129,7 +129,10 @@ def get_mask(size: int) -> int:
 
 
 def sanitize_func_name(func_name: str) -> str:
-    """Sanitizes the IDA function names to it's core name."""
+    """Sanitizes the IDA function names to its core name."""
+    # remove import prefix.
+    func_name = func_name.removeprefix("__imp_")
+
     # remove the extra "_" IDA likes to add to the function name.
     if func_name.startswith("_"):
         func_name = func_name[1:]

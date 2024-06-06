@@ -200,6 +200,7 @@ class Variable(object):
     def size(self):
         """Size of data"""
         return self._variable.size
+
     @property
     def data_type_size(self) -> int:
         """The data type size, defaults to 1 if unknown"""

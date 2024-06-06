@@ -497,22 +497,41 @@ class Memory:
             return self.read(addr, size)
 
         elif data_type == BYTE:
-            data = self.read(addr, 1)
-            return int.from_bytes(data, self._cpu_context.byteorder)
+            return self.read_int(addr, 1)
 
         elif data_type == WORD:
-            data = self.read(addr, 1)
-            return int.from_bytes(data, self._cpu_context.byteorder)
+            return self.read_int(addr, 2)
 
         elif data_type == DWORD:
-            data = self.read(addr, 4)
-            return int.from_bytes(data, self._cpu_context.byteorder)
+            return self.read_int(addr, 4)
 
         elif data_type == QWORD:
-            data = self.read(addr, 8)
-            return int.from_bytes(data, self._cpu_context.byteorder)
+            return self.read_int(addr, 8)
 
         raise ValueError("Invalid data_type: {!r}".format(data_type))
+
+    def read_int(self, addr: int, width: int = 4) -> int:
+        """
+        Helper function for reading an integer from the specified address.
+
+        :param addr: address to read data from
+        :param width: byte width of data to read
+        :return: Integer read from address
+        """
+        data = self.read(addr, width)
+        return int.from_bytes(data, self._cpu_context.byteorder)
+
+    def read_string_bytes(self, addr: int, wide=False) -> bytes:
+        """
+        Helper function for reading a null terminated string at the given address.
+
+        :param addr: address to read data from
+        :param wide: Determines if data to be read is a wide or non-wide string.
+            If true, data_type is assumed to be a STRING.
+            If false, data_type is assumed to be a WIDE_STRING.
+        :return: Bytes containing a string.
+        """
+        return self.read_data(addr, data_type=WIDE_STRING if wide else STRING)
 
     def read_string(self, addr: int, wide=False, encoding=None) -> str:
         """
@@ -529,7 +548,7 @@ class Memory:
         """
         if not encoding:
             encoding = "utf-16-le" if wide else "utf8"
-        data = self.read_data(addr, data_type=WIDE_STRING if wide else STRING)
+        data = self.read_string_bytes(addr, wide=wide)
         return data.decode(encoding)
 
     def write_data(self, addr: int, value: Union[str, bytes, int], data_type=None):
@@ -553,41 +572,56 @@ class Memory:
                 raise ValueError(f"Invalid data type: {type(value)}")
 
         if data_type == BYTE_STRING:
-            data = value
+            self.write(addr, value)
+            return
 
         elif data_type == STRING:
             data = value
             if isinstance(data, str):
                 data = data.encode("utf8")
             data += b"\0"
+            self.write(addr, data)
+            return
 
         elif data_type == WIDE_STRING:
             data = value
             if isinstance(data, str):
                 data = data.encode("utf-16-le")
             data += b"\0\0"
+            self.write(addr, data)
+            return
 
         elif data_type == BYTE:
-            data = bytes([value])
+            self.write_int(addr, value, 1)
+            return
 
         elif data_type == WORD:
-            value = utils.unsigned(value, 16)
-            data = value.to_bytes(2, self._cpu_context.byteorder)
+            self.write_int(addr, value, 2)
+            return
 
         elif data_type == DWORD:
-            value = utils.unsigned(value, 32)
-            data = value.to_bytes(4, self._cpu_context.byteorder)
+            self.write_int(addr, value, 4)
+            return
 
         elif data_type == QWORD:
-            value = utils.unsigned(value, 64)
-            data = value.to_bytes(8, self._cpu_context.byteorder)
+            self.write_int(addr, value, 8)
+            return
 
-        else:
-            raise ValueError(f"Invalid data_type: {repr(data_type)}")
+        raise ValueError(f"Invalid data_type: {repr(data_type)}")
 
+    def write_int(self, addr: int, value: int, width: int = 4):
+        """
+        Helper function for writing an integer to the specified address.
+
+        :param addr: address to write data to
+        :param width: byte width of data
+        """
+        if width > 1:
+            value = utils.unsigned(value, width * 8)
+        data = value.to_bytes(width, self._cpu_context.byteorder)
         self.write(addr, data)
 
-    def write_string(self, addr: int, value: str, wide=False, encoding=None):
+    def write_string(self, addr: int, value: Union[str, bytes], wide=False, encoding=None):
         """
         Helper function for encoding and writing a null terminated string
         at the given address.
@@ -602,9 +636,10 @@ class Memory:
         :param encoding: Encoding to use for encoding.
             (defaults to utf8 for non-wide strings, and utf-16-le for wide strings.)
         """
-        if not encoding:
-            encoding = "utf-16-le" if wide else "utf8"
-        value = value.encode(encoding)
+        if isinstance(value, str):
+            if not encoding:
+                encoding = "utf-16-le" if wide else "utf8"
+            value = value.encode(encoding)
         self.write_data(addr, value, data_type=WIDE_STRING if wide else STRING)
 
     def copy(self, src: int, dst: int, size: int):

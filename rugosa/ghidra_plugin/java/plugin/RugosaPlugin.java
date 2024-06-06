@@ -30,7 +30,7 @@ public final class RugosaPlugin extends ProgramPlugin {
 	private RugosaProgramListener programListener = DEFAULT_LISTENER;
 
 	public RugosaPlugin(PluginTool tool) {
-		super(tool, true, true);
+		super(tool);
 	}
 
 	@Override

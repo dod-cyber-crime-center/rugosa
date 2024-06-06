@@ -3,12 +3,13 @@ ARM opcodes
 """
 
 import logging
+import typing
 
 from .. import utils
 from ..cpu_context import ProcessorContext
 from ..instruction import Instruction
 from ..exceptions import EmulationError
-from ..registry import registrar
+from ..opcode import opcode_registrar
 from . import utils as arm_utils
 
 
@@ -17,7 +18,12 @@ logger = logging.getLogger(__name__)
 
 # Dictionary containing opcode names -> function
 OPCODES = {}
-opcode = registrar(OPCODES, name="opcode")
+
+if typing.TYPE_CHECKING:
+    from ..opcode import opcode
+else:
+    # only assign this at runtime, so we can keep the stub docs and typing
+    opcode = opcode_registrar(OPCODES)
 
 
 @opcode

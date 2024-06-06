@@ -1,13 +1,25 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-# [Unreleased]
+## [1.0.0] - 2024-06-06
 - Fix bug in `stos` instructions to pull address from `rdi` instead of `edi` (@ddash-ct)
+- Dropped support for Python 3.8
+- Fixed issue with finding code paths for recursive functions. (#10)
+- `Emulator.context_at()` will now raise a `ValueError` (instead of returning None) if no contexts could be made.
+- Fixed handling of function calls to import prefixed functions.
+- Added new interactive command line shell. (see [documentation](./docs/Shell.md))
+- Added ability to provide a callable or opcode to the `end` keyword in `ProcessorContext.execute()`
+- Added and updated helpers for context memory:
+  - `read_string_bytes()`  - Like `read_string()` but doesn't decode to a string.
+  - `read_int()` - Reads bytes as integer of given size.
+  - `write_string()` - Can now accept bytes or string value.
+  - `write_int()` - Writes an integer of given size.
+- Added ability to provided fixed number of arguments for registered builtin call hooks.
 
 
 ## [0.10.0] - 2023-11-29
 - Tested on Ghidra 10.4
-- Added `create_function()` utility function in `rugosa.func_utils`. This attempts to define a function containing the given address by looking for common start bounds. 
+- Added `create_function()` utility function in `rugosa.func_utils`. This attempts to define a function containing the given address by looking for common start bounds.
 
 
 ## [0.9.0] - 2023-09-06
@@ -130,7 +142,8 @@ All notable changes to this project will be documented in this file.
 - Migrated the majority of Kordesii functionality to work with Dragodis.
 
 
-[Unreleased]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.10.0...HEAD
+[Unreleased]: https://github.com/dod-cyber-crime-center/rugosa/compare/1.0.0...HEAD
+[1.0.0]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.10.0...1.0.0
 [0.10.0]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.9.0...0.10.0
 [0.9.0]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.8.0...0.9.0
 [0.8.0]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.7.2...0.8.0
