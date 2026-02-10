@@ -2,6 +2,10 @@
 All notable changes to this project will be documented in this file.
 
 
+## Unreleased
+- Update the rotate carry instructions to mask the operand value (@ddash-ct)
+
+
 ## [1.3.0] - 2026-05-01
 - Updated to support latest version of Dragodis which has Vivisect support.
 - Add option to set `num_args` when setting a call hook.
