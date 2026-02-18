@@ -1,6 +1,9 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+- Add `CMOVcc` instruction support (@ddash-ct)
+
 
 ## [1.3.0] - 2026-05-01
 - Updated to support latest version of Dragodis which has Vivisect support.
