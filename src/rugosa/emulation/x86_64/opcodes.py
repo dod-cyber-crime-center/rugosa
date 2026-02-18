@@ -413,6 +413,12 @@ def CMOVS(cpu_context: ProcessorContext, instruction: Instruction):
 
 
 @opcode
+def CMOVZ(cpu_context: ProcessorContext, instruction: Instruction):
+    """Conditional move if zero"""
+    _cmov(cpu_context.registers.zf == 1, instruction)
+
+
+@opcode
 def CMP(cpu_context: ProcessorContext, instruction: Instruction):
     """ Compare to values """
     operands = instruction.operands
