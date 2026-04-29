@@ -2,7 +2,7 @@
 All notable changes to this project will be documented in this file.
 
 
-## [Unreleased]
+## [1.3.0] - 2026-05-01
 - Updated to support latest version of Dragodis which has Vivisect support.
 - Add option to set `num_args` when setting a call hook.
 - Fixed bug in `sar`/`sal` opcode implementations.
@@ -167,7 +167,8 @@ All notable changes to this project will be documented in this file.
 - Migrated the majority of Kordesii functionality to work with Dragodis.
 
 
-[Unreleased]: https://github.com/dod-cyber-crime-center/rugosa/compare/1.0.0...HEAD
+[Unreleased]: https://github.com/dod-cyber-crime-center/rugosa/compare/1.3.0...HEAD
+[1.3.0]: https://github.com/dod-cyber-crime-center/rugosa/compare/1.0.0...1.3.0
 [1.0.0]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.10.0...1.0.0
 [0.10.0]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.9.0...0.10.0
 [0.9.0]: https://github.com/dod-cyber-crime-center/rugosa/compare/0.8.0...0.9.0
