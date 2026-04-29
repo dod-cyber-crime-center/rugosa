@@ -35,11 +35,13 @@ def test_x86_registers(disassembler):
         'c0', 'c1', 'c2', 'c3', 'cf', 'ch', 'cl', 'cs', 'cx', 'd', 'df',
         'dh', 'di', 'dil', 'dl', 'dm', 'ds', 'dx', 'eax', 'ebp', 'ebx',
         'ecx', 'edi', 'edx', 'eflags', 'es', 'esi', 'esp', 'flags', 'fs', 'gs', 'i', 'ic',
-        'id', 'iem', 'if', 'im', 'iopl', 'ir', 'nt', 'o', 'of', 'om', 'p',
-        'pc', 'pf', 'pm', 'r10', 'r10b', 'r10d', 'r10w', 'r11', 'r11b',
-        'r11d', 'r11w', 'r12', 'r12b', 'r12d', 'r12w', 'r13', 'r13b', 'r13d',
-        'r13w', 'r14', 'r14b', 'r14d', 'r14w', 'r15', 'r15b', 'r15d', 'r15w',
-        'r8', 'r8b', 'r8d', 'r8w', 'r9', 'r9b', 'r9d', 'r9w', 'rax', 'rbp',
+        'id', 'iem', 'if', 'im', 'iopl', 'ir',
+        'mm0', 'mm1', 'mm2', 'mm3', 'mm4', 'mm5', 'mm6', 'mm7',
+        'nt', 'o', 'of', 'om', 'p',
+        'pc', 'pf', 'pm', 'r10', 'r10b', 'r10d', 'r10l', 'r10w', 'r11', 'r11b',
+        'r11d', 'r11l', 'r11w', 'r12', 'r12b', 'r12d', 'r12l', 'r12w', 'r13', 'r13b', 'r13d',
+        'r13l', 'r13w', 'r14', 'r14b', 'r14d', 'r14l', 'r14w', 'r15', 'r15b', 'r15d', 'r15l', 'r15w',
+        'r8', 'r8b', 'r8d', 'r8l', 'r8w', 'r9', 'r9b', 'r9d', 'r9l', 'r9w', 'rax', 'rbp',
         'rbx', 'rc', 'rcx', 'rdi', 'rdx', 'rf', 'rip', 'rsi', 'rsp', 'sf',
         'sf', 'si', 'sil', 'sp', 'spl', 'ss',
         'st', 'st0', 'st1', 'st2', 'st3', 'st4', 'st5', 'st6', 'st7',
@@ -56,6 +58,7 @@ def test_x86_registers(disassembler):
     # Test getting register names for FPU.
     assert sorted(registers.fpu.names) == [
         "b", "c0", "c1", "c2", "c3", "d", "dm", "i", "ic", "iem", "im", "ir",
+        "mm0", "mm1", "mm2", "mm3", "mm4", "mm5", "mm6", "mm7",
         "o", "om", "p", "pc", "pm", "rc", "sf",
         "st", "st0", "st1", "st2", "st3", "st4", "st5", "st6", "st7",
         "tag0", "tag1", "tag2", "tag3", "tag4", "tag5", "tag6", "tag7",
@@ -63,7 +66,13 @@ def test_x86_registers(disassembler):
     ]
     # fmt: on
 
-    # Test FPU registers.
+
+def test_x86_fpu_registers(disassembler):
+    """Tests the FPU registers"""
+    emulator = Emulator(disassembler)
+    context = emulator.new_context()
+    registers = context.registers
+
     # TODO: Add tests for flags
     EMPTY = registers.fpu.EMPTY
     assert registers.st0 == EMPTY
@@ -82,3 +91,19 @@ def test_x86_registers(disassembler):
     registers.fpu.push(registers.fpu.INFINITY)
     assert registers.st0 == registers.fpu.INFINITY
     assert registers.st1 == -12.3
+
+
+def test_x86_mmx_registers(disassembler):
+    """Tests the MMX registers"""
+    emulator = Emulator(disassembler)
+    context = emulator.new_context()
+    registers = context.registers
+
+    assert registers.mm0 == 0
+    assert registers["mm0"] == 0
+    registers.mm0 = 0x1234
+    assert registers.mm0 == 0x1234
+    assert registers.st0 == 0x1234  # mm0 registers use the same physical registers as st*
+    registers.mm5 = 0x3
+    assert registers.mm5 == 0x3
+    assert registers.st5 == 0x3

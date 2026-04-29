@@ -1,0 +1,65 @@
+
+# File path containing initial commands to run during startup of shell tool.
+startup_script = ""
+
+# Configures default mechanics of emulation.
+# (These can also be configured when instantiating an Emulator class)
+[emulation]
+# Maximum number of instructions to allow when emulating loop following code.
+max_instructions = 10_000
+# When forcing emulation to go down the incorrect branch in order to reach the desired
+# end address, branch_tracking is used to try to tweak the registers to make the branching
+# condition true.
+# This can be helpful to ensure the rest of the emulation is done correctly, however
+# this will cause emulation to run slower.
+# So this option allows you to turn it off when the feature isn't necessary.
+branch_tracking = true
+# During emulation, high level variables defined by the underlying disassembler are recorded.
+# This can be turned off to improve performance if the feature isn't necessary.
+variable_tracking = true
+# Allow the emulator instance to be teleported into the underlying disassembler.
+# This is done for performance reasons, however in some cases if you are doing some deeper customizations
+# to the emulator you might run into problems. Therefore, we have the option to turn it off.
+teleport = true
+
+# Configures the memory handling during emulation.
+[memory]
+# Maximum amount of memory allowed to read/write.
+max_read_size = 0x10000000
+max_write_size = 0x10000000
+# Amount of bytes to actually read/write if we hit the max size above.
+fallback_read_size = 0x1000
+fallback_write_size = 0x1000
+# Base address for the stack
+stack_base = 0x1180000
+# Starting offset from the stack for the stack and base pointers. (usage: rsp/rbp, sp/fp)
+stack_offset = 0x800
+base_offset = 0x400
+
+# Configures the preset machine information during emulation.
+[machine]
+# Computer name given during emulation.
+computer_name = "RUGOSA_COMP"
+# Username given during emulation.
+username = "rugosa"
+# Emulated tick count for GetTickCount()
+# (Use "now" for the real time.)
+tick_count = 1587410693
+# Represents the current working directory. (usage: GetCurrentDirectory)
+working_directory = "."
+# Represents the directory containing the sample. (usage: GetModuleFileName)
+input_file_directory = "%INPUT_FILE_DIR%"
+# Represents the system directory. (usage: GetSystemDirectory)
+system_directory = "%WinDir%\\System32"
+# Represents the temp directory. (usage: GetTempPath)
+temp_directory = "%Temp%"
+# Represents the Windows directory. (usage: GetWindowsDirectory)
+windows_directory = "%WinDir%"
+
+# Environment variables initially setup on emulated machine.
+[env]
+COMSPEC = "C:\\Windows\\system32\\cmd.exe"
+WINDIR = "C:\\Windows"
+SYSTEMROOT = "C:\\Windows"
+SYSTEMDRIVE = "C:"
+HOMEDRIVE = "C:"

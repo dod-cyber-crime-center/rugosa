@@ -368,11 +368,17 @@ Entry Point   0x004014e0
 Lists the discovered strings within the binary.
 
 **Args:**
+- `--stack` extracts dynamically allocated stack strings using emulation*
+- `--static` extracts data strings found by the disassembler*
 - `--min` sets the minimum length for a valid string. (defaults to 3)
+- `--simple` outputs only the string's content
 - `--raw` writes out string data as raw binary when given an address or [target variable](#target-variables).
 
+
+**If neither `--stack` or `--static` is provided, both are extracted.*
+
 ```console
-(0x00401150)> strings
+(0x00401150)> strings --static
 address       size  string
 ----------  ------  -----------------------------------------------------------------------------------------------------------------------------------------------------------------
 0x0040a150       6  (null)
@@ -758,6 +764,35 @@ This data will be provided in raw bytes, so it is best to redirect the output to
 (0x140001783) > files 0x80 > example.txt
 (0x140001783) > !cat example.txt
 This is some sample data to write to the file.
+```
+
+### `find` command
+
+Searches for high-level objects or actions within the disassembly by emulating code paths.
+
+**Args:**
+- `{actions, objects, files, regkeys, services}` is the item to extract.
+- `start` is the address at which emulation should begin. If provided, emulation will start at this address and continue until the end of the function containing this address. By default, emulation will cover all functions found in the sample.
+(by default all functions are emulated)
+- `-k`/`--keep` determines whether to emulate using the currently set context. By default a new context is created.
+- `-d`/`--depth` sets the number of calls up the stack to emulate first before starting the current function. (defaults to 0)
+- `-c`/`--call-depth` sets the number of function calls deep within the current function we are allowed to emulate. (defaults to not emulating any function calls except hooked ones)
+- `-f`/`--follow-loops` determines if loops will be followed during emulation. Otherwise, only direct pathing is used.
+
+
+```console
+(0x00c9175e)> find actions
+address     action          handle    attributes
+----------  --------------  --------  --------------------------------------------------------------------------------------------------------------------------------
+0x00c9122c  ShellOperation            operation='open', path='foo.bat', parameters='', directory='', visibility=<Visibility.SW_HIDE: 0>
+0x00c91142  FileCreated     0x80      path='foo.bat', mode='w'
+0x00c913af  ShellOperation            operation='open', path='rundll32.exe', parameters='foobar.db, CheckFile', directory='', visibility=<Visibility.SW_HIDE: 0>
+0x00c9120c  FileClosed      0x80
+0x00c911fc  FileWritten     0x80      data=b''
+0x00c9130a  ShellOperation            operation='open', path='', parameters='', directory='', visibility=<Visibility.SW_MAXIMIZE: 3>
+0x00c914c3  FileClosed      0x80
+0x00c91498  FileCreated     0x80      path='\\', mode='w'
+0x00c914b8  FileWritten     0x80      data=b'bizbax'
 ```
 
 ### `memory` command

@@ -1,3 +1,5 @@
+from rugosa.emulation.instruction import Instructionfrom rugosa import ProcessorContextfrom rugosa.emulation.instruction import Instructionfrom rugosa import ProcessorContext
+
 # CPU Emulation
 
 Rugosa includes a function tracing utility that, along with Dragodis, can be used to statically emulate
@@ -6,6 +8,7 @@ and trace instructions within a function.
 - [Creating an Emulator](#creating-an-emulator)
 - [Creating a ProcessorContext](#creating-a-processorcontext)
 - [Iterating Multiple Paths](#iterating-multiple-paths)
+- [Iterative Emulation](#iterative-emulation)
 - [Emulating Call Stack](#emulating-call-stack)
 - [Emulating Loops](#emulating-loops)
 - [Retrieving Function Arguments](#retrieving-function-arguments)
@@ -18,6 +21,8 @@ and trace instructions within a function.
 - [Variables](#variables)
 - [Objects](#objects)
 - [Actions](#actions)
+- [Memory Streaming](#memory-streaming)
+- [Monitors](#monitors)
 
 
 ## Creating an Emulator
@@ -63,10 +68,12 @@ with dragodis.open_program(r"C:\input.exe") as dis:
    # pull referenced address if memory reference or value otherwise
    ptr = operand.addr or operand.value  
    # extract data from pointer 
-   data = context.memory.read_data(ptr) # as null terminated string
-   data = context.memory.read_data(ptr, data_type=constants.WIDE_STRING)  # as null terminated wide string
-   data = context.memory.read_data(ptr, 12)  # as 12 bytes
-   data = context.memory.read_data(ptr, data_type=constants.DWORD)  # as dword
+   data = context.memory.read_string(ptr) # as null terminated string
+   data = context.memory.read_string(ptr, wide=True)  # as null terminated wide string
+   data = context.memory.read_string_bytes(ptr)  # as null terminated string (not decoded)
+   data = context.memory.read(ptr, 12)  # as 12 bytes
+   data = context.memory.read_int(ptr)  # as dword
+   data = context.memory.read_int(ptr, width=8)  # as qword
    # etc.
    
    # Extract operand from a different instruction.
@@ -74,14 +81,14 @@ with dragodis.open_program(r"C:\input.exe") as dis:
    
    # Extract pointer from register and read contents from memory.
    rbp = context.registers.rbp
-   stack = context.memory.read_data(rbp, size=0x14)
+   stack = context.memory.read(rbp, 0x14)
    
    # Extract the arguments (if a call instruction)
    for args in context.get_function_arg_values():
        for i, arg in enumerate(args):
-           print("Arg {} -> 0x{:X}".format(i, arg))
+           print(f"Arg {i} -> 0x{arg:X}")
            # If arg is a pointer, you can use the context to dereference it.
-           value = context.memory.read_data(arg, size=100)
+           value = context.memory.read(arg, 100)
 ```
 
 *WARNING: If using IDA, the emulator will use the Hex-Rays Decompiler to help get more accurate function signatures for the `get_function_args()`.
@@ -116,16 +123,56 @@ out of the for loop as soon as you extracted the data you need.*
 ```python
 # Get context for each possible path.
 for context in emulator.iter_context_at(addr):
-    # ...
+    ...
     
 # Get operand for each possible path.
 for context, value in emulator.iter_operand_value(addr):
-    # ...
+    ...
     
 # Get function args for each possible path.
 for context, args in emulator.iter_function_args(addr):
-    # ...    
+    ...    
 ```
+
+## Iterative Emulation
+
+Instead of providing an address to end emulation, we can instead iteratively emulate all instructions within a sample
+using the `iter_exhaust()` function. This function will find and execute all functions within the sample - returning
+the context at each instruction.
+
+```python
+for context, instruction in emulator.iter_exhaust():
+    ...
+```
+
+If you would only like to receive a context when at the end of a basic block or function, we can change the `scope`
+to "block", "function", or "code_path" respectively.
+
+```python
+# yields only when the instruction is at the end of a basic block.
+for context, instruction in emulator.iter_exhaust(scope="block"):
+    ...
+
+# yields only when the instruction is at the end of a function.
+for context, instruction in emulator.iter_exhaust(scope="function"):
+    ...
+
+# yields only when the instruction is at the end of a code path execution 
+# (either the end of the function or about to loop)
+for context, instruction in emulator.iter_exhaust(scope="code_path"):
+    ...
+```
+
+
+To execute only within a specific function, provide an address contained within that function.
+Emulation will start at that address. Therefore, provide the start address to emulate all instructions within
+a given function.
+
+```python
+for context, instruction in emulator.iter_exhaust(func_addr):
+   ...
+```
+
 
 ## Emulating Call Stack
 
@@ -325,7 +372,7 @@ with dragodis.open_program(r"C:\input.ext") as dis:
 
 ## Emulating Subroutines
 
-`function_tracing` can statically emulate a full subroutine within the dissasembler as if it was a
+Rugosa can statically emulate a full subroutine within the dissasembler as if it was a
 Python function through the use of the `create_emulated()` function. 
 This function accepts an address within a subroutine and returns a Python
 function that emulates the subroutine when executed.
@@ -657,3 +704,48 @@ with context.memory.open(0x401000) as stream:
     stream.seek(100)  # 100 bytes from start address
     stream.write(b"hello")  # writes data back to emulated memory at current seek location.
 ```
+
+
+## Monitors
+
+Monitors provide a way to observe the context at different stages of emulation. 
+Such as before/after each instruction, before/after each basic block, or at the end of a code path.
+
+A monitor can be created by subclassing `rugosa.Monitor` and then adding it to the emulator.
+The monitor will then be called during emulation based on the functions that are implemented.
+Combined with the `exhaust()` function which exhausts all code paths within an emulation, this can be a good
+way to gather results.
+
+```python
+import rugosa
+
+class MyMonitor(rugosa.Monitor):
+   
+    def __init__(self):
+        self.history = []
+        self.blocks_seen = set()
+   
+    def pre_instruction(self, context, instruction):
+        self.history.append(instruction.address)
+      
+    def block_start(self, context, instruction):
+       self.blocks_seen.add(instruction.address)
+
+       
+results = MyMonitor()
+emu = rugosa.Emulator(dis)
+emu.add_monitor(results)
+emu.exhaust(0x1234)
+print(results.history)
+print(results.blocks_seen)
+emu.remove_monitor(results)
+
+# Can also use a with statement using `.monitor()`.
+with emu.monitor(MyMonitor()) as results:
+   emu.exhaust(0x1234)
+print(results.executed)
+```
+
+There are some prebuilt monitors available for extracting high-level objects such as actions, objects, or stack strings.
+These can be found in `ruguosa.emulation.monitors`. However, most of these can be indirectly used by calling one 
+of the `find` functions on the emulator: `find_objects()`, `find_actions()`, `find_files()`, `find_stack_strings()`, etc. 

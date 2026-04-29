@@ -1,0 +1,8 @@
+from .emulation import *
+from .disassembly import *
+from .strings import *
+# NOTE: Explicit import is necessary to prevent Python from trying to import builtin.
+import rugosa.re as re
+import rugosa.yara as yara
+
+__version__ = "1.3.0"

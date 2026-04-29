@@ -1,3 +1,5 @@
+import dragodis
+import pytest
 from rugosa.emulation.emulator import Emulator
 
 
@@ -12,11 +14,11 @@ def test_function_arg(disassembler):
     context = emulator.context_at(xor_func_call)
     args = context.function_args
     assert len(args) == 2
-    assert args[0].name in ("a1", "param_1")
-    assert args[0].type == "byte *"
+    assert args[0].name in ("a1", "param_1", "arg0")
+    assert args[0].type in ("byte *", "int")
     assert args[0].value == 0x0040C000  # pointer to b'Idmmn!Vnsme '
     assert args[0].addr == context.sp + 0
-    assert args[1].name in ("a2", "param_2")
+    assert args[1].name in ("a2", "param_2", "arg1")
     assert args[1].type in ("char", "byte", "int")
     assert args[1].value == 1  # key
     assert args[1].addr == context.sp + 4
@@ -29,11 +31,11 @@ def test_function_arg(disassembler):
     # Test pulling in passed in arguments.
     context = emulator.context_at(0x00401011)  # somewhere randomly in the xor function
     args = context.passed_in_args
-    assert args[0].name in ("a1", "param_1")
-    assert args[0].type == "byte *"
+    assert args[0].name in ("a1", "param_1", "arg0")
+    assert args[0].type in ("byte *", "int")
     assert args[0].value == 0
     assert args[0].addr == context.sp + 0x08  # +8 to account for pushed in return address and ebp
-    assert args[1].name in ("a2", "param_2")
+    assert args[1].name in ("a2", "param_2", "arg1")
     assert args[1].type in ("char", "byte", "int")
     assert args[1].value == 0
     assert args[1].addr == context.sp + 0x0C
@@ -41,6 +43,10 @@ def test_function_arg(disassembler):
 
 def test_function_arg_arm(disassembler):
     """Tests FunctionArg object."""
+    # This may fail if we didn't pay extra for the ARM license.
+    if disassembler.name == dragodis.BACKEND_IDA:
+        pytest.xfail("This can fail if the HEXARM decompiler license is missing.")
+
     emulator = Emulator(disassembler)
 
     xor_func_ea = 0x104FC
@@ -49,13 +55,16 @@ def test_function_arg_arm(disassembler):
     # Basic tests.
     context = emulator.context_at(xor_func_call)
     args = context.function_args
+    # Vivisect fails to detect teh correct number of arguments.
+    if disassembler.name == dragodis.BACKEND_VIVISECT:
+        args = context.get_function_args(num_args=2)
     assert len(args) == 2
-    assert args[0].name in ("result", "__block")
-    assert args[0].type in ("byte *", "char *")
+    assert args[0].name in ("result", "__block", "r0")
+    assert args[0].type in ("byte *", "char *", "int")
     assert args[0].value == context.registers.r0 == 0x21028  # pointer to b'Idmmn!Vnsme '
     assert args[0].addr is None  # register arguments don't have an address.
-    assert args[1].name in ("a2", "__edflag")
-    assert args[1].type in ("char", "int")
+    assert args[1].name in ("a2", "__edflag", "arg1")
+    assert args[1].type in ("char", "int", "dword")
     assert args[1].value == context.registers.r1 == 1  # key
     assert args[1].addr is None
     # Test that we can change the values.
@@ -66,12 +75,12 @@ def test_function_arg_arm(disassembler):
     # Test pulling in passed in arguments.
     context = emulator.context_at(0x1042C)  # somewhere randomly in the xor function
     args = context.passed_in_args
-    assert args[0].name in ("result", "__block")
-    assert args[0].type in ("byte *", "char *")
+    assert args[0].name in ("result", "__block", "r0")
+    assert args[0].type in ("byte *", "char *", "int")
     assert args[0].value == context.registers.r0 == 0
     assert args[0].addr is None
-    assert args[1].name in ("a2", "__edflag")
-    assert args[1].type in ("char", "int")
+    assert args[1].name in ("a2", "__edflag", "arg1")
+    assert args[1].type in ("char", "int", "dword")
     assert args[1].value == context.registers.r1 == 0
     assert args[1].addr is None
 
@@ -87,10 +96,11 @@ def test_function_signature(disassembler):
     func_sig = context.get_function_signature(func_ea=xor_func_ea)
     assert func_sig.declaration in (
         "_BYTE *__cdecl sub_401000(_BYTE *a1, char a2);",
-        "undefined __cdecl FUN_00401000(byte * param_1, byte param_2)"
+        "undefined __cdecl FUN_00401000(byte * param_1, byte param_2)",
+        "int __cdecl sub_00401000(int arg0, int arg1)",
     )
     assert func_sig.calling_convention == "__cdecl"
-    assert func_sig.return_type in ("byte *", "undefined")
+    assert func_sig.return_type in ("byte *", "undefined", "int")
     args = func_sig.arguments
     assert len(args) == 2
     assert [(arg.type, arg.name, arg.value) for arg in args] in (
@@ -101,6 +111,10 @@ def test_function_signature(disassembler):
         [
             ("byte *", "param_1", 0),
             ("byte", "param_2", 0)
+        ],
+        [
+            ("int", "arg0", 0),
+            ("int", "arg1", 0),
         ]
     )
 
@@ -108,9 +122,11 @@ def test_function_signature(disassembler):
     func_sig.add_argument("int")
     func_sig.arguments[-1].name = "new_arg"
     assert func_sig.declaration in (
-        "_BYTE *__cdecl sub_401000(_BYTE *a1, char a2, INT new_arg);",
+        "_BYTE *__cdecl sub_401000(_BYTE *a1, char a2, INT new_arg);",  # IDA 8.1
+        "_BYTE *__cdecl sub_401000(_BYTE *a1, char a2, int new_arg);",  # IDA 8.5
         "undefined cdecl FUN_00401000(byte * param_1, byte param_2, int new_arg)",
         "undefined __cdecl FUN_00401000(byte * param_1, byte param_2, int new_arg)",
+        "int __cdecl sub_00401000(int arg0, int arg1, int new_arg)",
     )
     args = func_sig.arguments
     assert len(args) == 3
@@ -134,7 +150,7 @@ def test_function_signature(disassembler):
 
     # Then test we can force 2 arguments anyway.
     results = []
-    for ea in func.calls_to:
+    for ea in func.calls_to():
         for context in emulator.iter_context_at(ea):
             args = context.get_function_arg_values(num_args=2)
             assert len(args) == 2

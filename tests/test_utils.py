@@ -48,3 +48,44 @@ def test_is_func_ptr(disassembler):
     assert utils.is_func_ptr(disassembler, 0x401000)
     assert utils.is_func_ptr(disassembler, 0x40A040)
     assert not utils.is_func_ptr(disassembler, 0x1)
+
+
+def test_cached_generator():
+    triggerred = 0
+    @utils.cached_generator
+    def mygenerator(count):
+        nonlocal triggerred
+        for i in range(count):
+            triggerred += 1
+            yield i
+
+    gen = mygenerator(5)
+    assert next(gen) == 0
+    assert next(gen) == 1
+    assert triggerred == 2
+
+    gen2 = mygenerator(5)
+    assert next(gen2) == 0
+    assert next(gen2) == 1
+    assert triggerred == 2  # original generator not triggered
+    assert next(gen2) == 2
+    assert triggerred == 3  # now it is
+
+    assert next(gen) == 2
+    assert triggerred == 3  # used cache
+
+    triggerred = 0
+    gen3 = mygenerator(6)
+    assert next(gen3) == 0
+    assert next(gen3) == 1
+    assert triggerred == 2
+
+    # Test cache invalidation.
+    triggerred = 0
+    assert next(mygenerator(5)) == 0
+    assert next(mygenerator(6)) == 0
+    assert triggerred == 0
+    mygenerator.clear_cache()
+    assert next(mygenerator(5)) == 0
+    assert next(mygenerator(6)) == 0
+    assert triggerred == 2

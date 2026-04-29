@@ -66,7 +66,7 @@ def test_context_depth(disassembler):
     assert len(list(iter_paths(flowchart, ea))) == num_paths_first_depth
 
     func = disassembler.get_function(ea)
-    call_eas = list(func.calls_to)
+    call_eas = list(func.calls_to())
     assert len(call_eas) == num_calls
     call_ea = call_eas[0]
     assert call_ea == 0x40103A

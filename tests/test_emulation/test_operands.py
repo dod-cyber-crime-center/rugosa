@@ -12,20 +12,21 @@ def test_barrel_shifted_operands_arm(disassembler):
     # MOV     R1, R3,LSR#31
     ctx = emulator.new_context()
     insn = ctx.get_instruction(0x103A4)
-    ctx.ip = insn.ip
-    assert insn.operands[1].text in ("R3,LSR#31", "r3, lsr #0x1f")
-    ctx.registers.r3 = 0xffffffff
-    ctx.registers.c = 0
-    assert ctx.registers.r3 == 0xffffffff
-    assert ctx.registers.c == 0
-    assert insn.operands[1].value == 0x1
-    assert ctx.registers.c == 0  # carry flag should have not been updated, (not MOVS)
+    if insn.mnem != "lsr":  # Vivisect just has a "lsr" opcode instead.
+        ctx.ip = insn.ip
+        assert insn.operands[1].text in ("R3,LSR#31", "r3, lsr #0x1f")
+        ctx.registers.r3 = 0xffffffff
+        ctx.registers.c = 0
+        assert ctx.registers.r3 == 0xffffffff
+        assert ctx.registers.c == 0
+        assert insn.operands[1].value == 0x1
+        assert ctx.registers.c == 0  # carry flag should have not been updated, (not MOVS)
 
     # ADD     R1, R1, R3,ASR#2
     ctx = emulator.new_context()
     insn = ctx.get_instruction(0x103A8)
     ctx.ip = insn.ip
-    assert insn.operands[2].text in ("R3,ASR#2", "r3, asr #0x2")
+    assert insn.operands[2].text in ("R3,ASR#2", "r3, asr #0x2", "r3, asr #2")
     ctx.registers.r3 = 0x1013
     ctx.registers.c = 0
     assert insn.operands[2].value == 0x1013 >> 2
@@ -39,23 +40,24 @@ def test_barrel_shifted_operands_arm(disassembler):
     # MOVS    R1, R1,ASR#1
     ctx = emulator.new_context()
     insn = ctx.get_instruction(0x103AC)
-    ctx.ip = insn.ip
-    assert insn.operands[1].text in ("R1,ASR#1", "r1, asr #0x1")
-    ctx.registers.r1 = 0x1013
-    ctx.registers.c = 0
-    assert insn.operands[1].value == 0x1013 >> 1
-    assert ctx.registers.c == 1  # carry flag should be affected (MOVS)
-    # reset instruction pointer to ensure carry flag is only affected if ip is the same.
-    ctx.ip = 0
-    assert ctx.ip != insn.ip
-    ctx.registers.r1 = 0x1013
-    ctx.registers.c = 0
-    assert insn.operands[1].value == 0x1013 >> 1
-    assert ctx.registers.c == 0  # carry flag should not be affected, (ctx.ip != insn.ip)
+    if insn.mnem != "asrs":
+        ctx.ip = insn.ip
+        assert insn.operands[1].text in ("R1,ASR#1", "r1, asr #0x1")
+        ctx.registers.r1 = 0x1013
+        ctx.registers.c = 0
+        assert insn.operands[1].value == 0x1013 >> 1
+        assert ctx.registers.c == 1  # carry flag should be affected (MOVS)
+        # reset instruction pointer to ensure carry flag is only affected if ip is the same.
+        ctx.ip = 0
+        assert ctx.ip != insn.ip
+        ctx.registers.r1 = 0x1013
+        ctx.registers.c = 0
+        assert insn.operands[1].value == 0x1013 >> 1
+        assert ctx.registers.c == 0  # carry flag should not be affected, (ctx.ip != insn.ip)
 
-    # Ensure proper error is thrown if we attempt to set the operand value.
-    with pytest.raises(EmulationError):
-        insn.operands[1].value = 10
+        # Ensure proper error is thrown if we attempt to set the operand value.
+        with pytest.raises(EmulationError):
+            insn.operands[1].value = 10
 
 
 def test_register_list_operands_arm_ida(disassembler):
@@ -139,7 +141,7 @@ def test_memory_addressing_modes_arm(disassembler):
     ctx = emulator.new_context()
     ctx.memory.write(0, bytes(range(100)))
     insn = ctx.get_instruction(0x106BC)
-    assert insn.operands[1].text in ("[R5],#4", "[r5],#0x4")
+    assert insn.operands[1].text in ("[R5],#4", "[r5],#0x4", "[r5], #0x4")
     ctx.registers.r5 = 5
     # operand initially points to address 0x5
     assert insn.operands[1].addr == 5
@@ -155,7 +157,8 @@ def test_memory_addressing_modes_arm(disassembler):
     ctx = emulator.new_context()
     ctx.memory.write(0, bytes(range(100)))
     insn = ctx.get_instruction(0x10354)
-    assert insn.operands[1].text in ("[R3,R2]", "[r3,r2]")
+    # Vivisect changes whitespace on us for some reason.
+    assert insn.operands[1].text.lower().replace(" ", "") == "[r3,r2]"
     ctx.registers.r2 = 2
     ctx.registers.r3 = 3
     # operand initially points to address 3 + 2
@@ -173,7 +176,7 @@ def test_memory_addressing_modes_arm(disassembler):
     ctx = emulator.new_context()
     ctx.memory.write(0, bytes(range(100)))
     insn = ctx.get_instruction(0x102D4)
-    assert insn.operands[1].text in ("[LR,#8]!", "[LR,#(off_21008 - 0x21000)]!", "[lr,#0x8]!")
+    assert insn.operands[1].text in ("[LR,#8]!", "[LR,#(off_21008 - 0x21000)]!", "[lr,#0x8]!", "[lr, #0x8]!")
     ctx.registers.lr = 2
     # operand initially points to address 0x2 + 8
     assert insn.operands[1].addr == 2 + 8

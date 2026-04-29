@@ -1,6 +1,31 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+
+## [Unreleased]
+- Updated to support latest version of Dragodis which has Vivisect support.
+- Add option to set `num_args` when setting a call hook.
+- Fixed bug in `sar`/`sal` opcode implementations.
+- Added `Emulator.iter_exhaust()` and `Emulator.exhaust()` to iteratively execute all instructions within the sample.
+- Added helper functions:
+  - `find_actions()`
+  - `find_objects()`
+  - `find_files()`
+  - `find_reg_keys()`
+  - `find_services()`
+  - `find_stack_strings()`
+- Added stack string extraction to shell tool.
+- Added `find` command to shell tool.
+- Added json output using `--json` to shell tool.
+- Added bulk file extraction for `files` and `find files` command with `--export`.
+- Add emulation support for r8-r15 registers with an "l" prefix.
+- Add emulation for `pand`, `pandn`, and `padd*` opcodes.
+- Add emulation support for MMX registers (mm0-mm7).
+- Add support to configure max read/write memory sizes from environment variable.
+- Changed fallback size to lower amount if max read/write size is hit.
+- Add ability to configure Rugosa through a [settings.toml](src/rugosa/config/settings.toml) file. (See [documentation](README.md#configuration) for more information)
+
+
 ## [1.0.0] - 2024-06-06
 - Fix bug in `stos` instructions to pull address from `rdi` instead of `edi` (@ddash-ct)
 - Dropped support for Python 3.8

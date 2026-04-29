@@ -48,10 +48,11 @@ def test_function_case_senstivity_all(disassembler):
     assert emulator.get_call_hook("superfunc").__name__ == "dummy"
 
 
-def test_multiple_emulations(strings_x86):
+def test_multiple_emulations(global_datadir):
     """
     Tests issue with stale caching when multiple emulations happen in same process but different dragodis disassemblies.
     """
+    strings_x86 = global_datadir / "strings_x86"
     address = 0x401024
 
     try:

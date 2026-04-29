@@ -1,11 +1,15 @@
+import dragodis
+from rugosa import ProcessorContext
+from rugosa.emulation import Monitor
 from rugosa.emulation.emulator import Emulator
+from rugosa.emulation.instruction import Instruction
 
 
 def test_func_emulate(disassembler):
     """Tests full function emulation in Emulator.create_emulated."""
     emulator = Emulator(disassembler)
 
-    if emulator.arch == "x86":
+    if emulator.disassembler.is_x86:
         xor_func_ea = 0x00401000
         enc_data_ptr = 0x0040C000  # pointer to b'Idmmn!Vnsme '
     else:
@@ -37,7 +41,7 @@ def test_function_hooking_all(disassembler):
     """Tests function hooking mechanism."""
     emulator = Emulator(disassembler)
 
-    if emulator.arch == "x86":
+    if emulator.disassembler.is_x86:
         xor_func_ea = 0x00401000
         end_ea = 0x00401141  # address in caller after all xor functions have been called.
         expected_args = [
@@ -88,7 +92,7 @@ def test_function_hooking_all(disassembler):
     # First test hooking with standard function.
     def xor_hook(context, func_name, func_args):
         args.append(func_args)
-    emulator.hook_call(xor_func_ea, xor_hook)
+    emulator.hook_call(xor_func_ea, xor_hook, num_args=2)
     context = emulator.context_at(end_ea)
     # Casting is necessary if emulator is teleported.
     args = [list(func_args) for func_args in args]
@@ -231,3 +235,77 @@ def test_opcode_hooking(disassembler):
         0x7f, 0x40c1f8,
     ]
     # fmt: on
+
+
+# NOTE: Can't test Vivisect, because it doesn't detect the printf
+def test_exhaust_x86(disassembler):
+    """
+    Tests exhausting the entry point.
+    """
+    if disassembler.name == dragodis.BACKEND_VIVISECT:
+        disassembler.set_name(0x4012a0, "printf")
+
+    class TestExhaust(Monitor):
+        def code_path_end(self, context: ProcessorContext, instruction: Instruction):
+            assert context.stdout == (
+                'Hello World!\n'
+                 'Test string with key 0x02\n'
+                 'The quick brown fox jumps over the lazy dog.\n'
+                 'Oak is strong and also gives shade.\n'
+                 'Acid burns holes in wool cloth.\n'
+                 'Cats and dogs each hate the other.\n'
+                 "Open the crate but don't break the glass.\n"
+                 'There the flood mark is ten inches.\n'
+                 '1234567890\n'
+                 'CreateProcessA\n'
+                 'StrCat\n'
+                 'ASP.NET\n'
+                 'kdjsfjf0j24r0j240r2j09j222\n'
+                 '32897412389471982470\n'
+                 'The past will look brighter tomorrow.\n'
+                 'Cars and busses stalled in sand drifts.\n'
+                 'The jacket hung on the back of the wide chair.\n'
+                 '32908741328907498134712304814879837483274809123748913251236598123056231895712\n'
+            )
+
+    emulator = Emulator(disassembler)
+    with emulator.monitor(TestExhaust()):
+        emulator.exhaust(0x401150, call_depth=2)
+
+
+def test_iter_exhaust_instructions_x86(disassembler):
+    """
+    Tests iterative execution of instructions.
+    """
+    emulator = Emulator(disassembler)
+    call_addresses = []
+    for context, instruction in emulator.iter_exhaust(0x401150):
+        if instruction.mnem == "call":
+            call_addresses.append(instruction.ip)
+    assert call_addresses == [
+        0x00401153, 0x00401162, 0x00401174, 0x00401186, 0x00401198, 0x004011aa, 0x004011bc,
+        0x004011ce, 0x004011e0, 0x004011f2, 0x00401204, 0x00401216, 0x00401228, 0x0040123a,
+        0x0040124c, 0x0040125e, 0x00401270, 0x00401282, 0x00401294
+    ]
+
+
+def test_iter_exhaust_blocks_x86(disassembler):
+    """
+    Tests iterative execution of blocks.
+    """
+    emulator = Emulator(disassembler)
+    block_ends = []
+    for context, instruction in emulator.iter_exhaust(scope="block", ignore_libraries=False):
+        block_ends.append(instruction.ip)
+    assert len(block_ends) in (3241, 3359, 3260)  # (Ghidra, Ghidra, IDA, Vivisect)
+
+
+def test_iter_exhaust_code_path_x86(disassembler):
+    """
+    Tests iterative execution of code paths.
+    """
+    emulator = Emulator(disassembler)
+    function_ends = []
+    for context, instruction in emulator.iter_exhaust(scope="code_path", ignore_libraries=False):
+        function_ends.append(instruction.ip)
+    assert len(function_ends) in (1331, 1354, 1338)  # (Ghidra, IDA, Vivisect)

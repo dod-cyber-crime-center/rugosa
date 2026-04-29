@@ -1,0 +1,92 @@
+[build-system]
+requires = [
+    "setuptools >=61.2,<70.0",
+    "wheel",
+]
+
+[project]
+name = "rugosa"
+description = "A static malware analysis library and tool developed using the disassembler-agnostic Dragodis."
+authors = [
+    {name = "DC3", email = "dc3.tsd@us.af.mil"},
+]
+keywords = ["malware", "ida", "idapro", "ghidra", "emulation", "strings", "regex", "yara"]
+readme = {file = "README.md", content-type = "text/markdown"}
+license = {file = "LICENSE.txt"}
+dynamic = ["version"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+requires-python = ">= 3.10"
+dependencies = [
+    "dragodis>=1.1.0",
+    "dynaconf",
+    "platformdirs",
+    "cmd2>=3.0.0rc1",
+    "pyreadline3; platform_system=='Windows'",
+    "tabulate",
+    "hexdump",
+    "pyhidra>=0.6.0",
+    "yara-python",
+]
+
+[project.optional-dependencies]
+testing = [
+    "pytest>=3.0.0",
+    "pytest-datadir"
+]
+
+[project.scripts]
+rugosa = "rugosa.shell:main"
+
+[project.entry-points."pyhidra.setup"]
+rugosa = "rugosa.ghidra_plugin.install:setup"
+
+[project.entry-points."pyhidra.pre_launch"]
+rugosa = "rugosa.ghidra_plugin.install:pre_launch"
+
+[project.urls]
+Homepage = "https://github.com/dod-cyber-crime-center/rugosa"
+Repository = "https://github.com/dod-cyber-crime-center/rugosa.git"
+Changelog = "https://github.com/dod-cyber-crime-center/rugosa/blob/master/CHANGELOG.md"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.package-data]
+rugosa = ["config/settings.toml"]
+
+[tool.setuptools.dynamic]
+version = {attr = "rugosa.__version__"}
+
+[tool.pytest.ini_options]
+norecursedirs = [
+    "docs",
+    "build",
+    "*.egg-info",
+    ".git",
+    ".nox",
+    ".pytest_cache"
+]
+testpaths = ["tests"]
+addopts = "-p no:faulthandler"
+#log_cli = true
+#log_cli_level = "DEBUG"
+#log_cli_format = "[%(levelname)8s] %(module)-15s : %(message)s"
+markers = [
+    "ida: tests that use IDA with rpyc",
+    "idalib: tests that use IDA with idalib",
+    "ghidra: tests that use Ghidra",
+    "vivisect: tests that use Vivisect",
+    "x86: tests x86 sample",
+    "arm: tests ARM sample",
+]
+
+[tool.uv.sources]
+dragodis = { path = "../dragodis", editable = true }

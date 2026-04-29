@@ -1,3 +1,4 @@
+import dragodis
 import pytest
 
 import rugosa
@@ -84,9 +85,11 @@ def test_find_user_strings(disassembler):
     strings = list(rugosa.find_user_strings(disassembler, unique=True))
     print("\n".join(f"{hex(address)}: '{string}'" for address, string in strings))
     assert set(strings) >= USER_STRINGS
-    # While we could have extras based on disassembler, make sure we are somewhat on target.
-    assert len(strings) == pytest.approx(len(USER_STRINGS), abs=3)
-    assert set(strings).isdisjoint(API_RESOLVE_STRINGS)
+    if disassembler.name != dragodis.BACKEND_VIVISECT:
+        # FIXME: Vivisect can't detect library functions.
+        # While we could have extras based on disassembler, make sure we are somewhat on target.
+        assert len(strings) == pytest.approx(len(USER_STRINGS), abs=3)
+        assert set(strings).isdisjoint(API_RESOLVE_STRINGS)
 
     strings = list(rugosa.find_user_strings(disassembler, ignore_api=False, ignore_library=False))
     print("\n".join(f"{hex(address)}: '{string}'" for address, string in strings))
@@ -94,12 +97,18 @@ def test_find_user_strings(disassembler):
 
 
 def test_find_api_resolve_strings(disassembler):
+    # FIXME: Vivisect fails to set code_call references for addresses within registers.
+    #   e.g:  call esi    ;kernel32.GetProcAddress(user32,0x0040a9b4)
+    if disassembler.name == dragodis.BACKEND_VIVISECT:
+        pytest.xfail("Vivisect fails to set code_call references for addresses within registers.")
     strings = list(rugosa.find_api_resolve_strings(disassembler))
     print("\n".join(f"{hex(address)}: '{string}'" for address, string in strings))
     assert set(strings) == API_RESOLVE_STRINGS
 
 
 def test_is_library_string(disassembler):
+    if disassembler.name == dragodis.BACKEND_VIVISECT:
+        pytest.xfail("Vivisect cannot detect library functions.")
     assert rugosa.is_library_string(disassembler, 0x40A838)
     assert rugosa.is_library_string(disassembler, 0x40A884)
     assert not rugosa.is_library_string(disassembler, 0x40C000)
