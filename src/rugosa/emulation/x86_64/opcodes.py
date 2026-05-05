@@ -262,10 +262,10 @@ def _cmov(condition: bool, instruction: Instruction):
     operands = instruction.operands
     value = operands[1].value
     if condition:
-        logger.debug("Moving: %f -> st0", value)
+        logger.debug(f"Moving: {value} -> {operands[0].text}")
         operands[0].value = value
     else:
-        logger.debug("Not moving: %f -> st0. Condition failed.", value)
+        logger.debug(f"Not moving: {value} -> {operands[0].text}. Condition failed.")
 
 
 @opcode
