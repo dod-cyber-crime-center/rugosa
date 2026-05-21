@@ -1608,9 +1608,11 @@ def RCR(cpu_context: ProcessorContext, instruction: Instruction):
     if opvalue2 == 1:
         cpu_context.registers.of = get_msb(opvalue1, width) ^ cpu_context.registers.cf
 
+    mask = (1 << (8 * width)) - 1
     while tempcount:
         tempcf = get_lsb(opvalue2)
         opvalue1 = (opvalue1 >> 1) + (cpu_context.registers.cf * 2 ** width)
+        opvalue1 &= mask
         cpu_context.registers.cf = tempcf
         tempcount -= 1
 
@@ -1639,9 +1641,11 @@ def RCL(cpu_context: ProcessorContext, instruction: Instruction):
         # This is undefined behavior
         return
 
+    mask = (1 << (8 * width)) - 1
     while tempcount:
         tempcf = get_msb(opvalue1, width)
         opvalue1 = (opvalue1 * 2) + cpu_context.registers.cf
+        opvalue1 &= mask
         cpu_context.registers.cf = tempcf
         tempcount -= 1
 
