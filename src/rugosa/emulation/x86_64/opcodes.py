@@ -258,6 +258,166 @@ def CMC(cpu_context: ProcessorContext, instruction: Instruction):
     cpu_context.registers.cf = int(not cpu_context.registers.cf)
 
 
+def _cmov(condition: bool, instruction: Instruction):
+    operands = instruction.operands
+    value = operands[1].value
+    if condition:
+        logger.debug(f"Moving: {value} -> {operands[0].text}")
+        operands[0].value = value
+    else:
+        logger.debug(f"Not moving: {value} -> {operands[0].text}. Condition failed.")
+
+
+@opcode
+def CMOVA(cpu_context: ProcessorContext, instruction: Instruction):
+    """Conditional move if above"""
+    _cmov(cpu_context.registers.cf == 0 and cpu_context.registers.zf == 0, instruction)
+
+
+@opcode
+def CMOVAE(cpu_context: ProcessorContext, instruction: Instruction):
+    """Conditional move if above or equal"""
+    _cmov(cpu_context.registers.cf == 0, instruction)
+
+
+@opcode
+def CMOVB(cpu_context: ProcessorContext, instruction: Instruction):
+    """Conditional move if below"""
+    _cmov(cpu_context.registers.cf == 1, instruction)
+
+
+@opcode
+def CMOVC(cpu_context: ProcessorContext, instruction: Instruction):
+    """Conditional move if carry"""
+    _cmov(cpu_context.registers.cf == 1, instruction)
+
+
+@opcode
+def CMOVBE(cpu_context: ProcessorContext, instruction: Instruction):
+    """Conditional move if below or equal"""
+    _cmov(cpu_context.registers.cf == 1 and cpu_context.registers.zf == 1, instruction)
+
+
+@opcode
+def CMOVG(cpu_context: ProcessorContext, instruction: Instruction):
+    """Conditional move if greater"""
+    _cmov(cpu_context.registers.cf == cpu_context.registers.of and cpu_context.registers.zf == 0, instruction)
+
+
+@opcode
+def CMOVGE(cpu_context: ProcessorContext, instruction: Instruction):
+    """Conditional move if greater or equal"""
+    _cmov(cpu_context.registers.cf == cpu_context.registers.of, instruction)
+
+
+@opcode
+def CMOVL(cpu_context: ProcessorContext, instruction: Instruction):
+    """Conditional move if less"""
+    _cmov(cpu_context.registers.cf != cpu_context.registers.of, instruction)
+
+
+@opcode
+def CMOVLE(cpu_context: ProcessorContext, instruction: Instruction):
+    """Conditional move if less or equal"""
+    _cmov(cpu_context.registers.zf == 1 and cpu_context.registers.cf != cpu_context.registers.of, instruction)
+
+
+@opcode
+def CMOVNA(cpu_context: ProcessorContext, instruction: Instruction):
+    """Conditional move if not above"""
+    _cmov(cpu_context.registers.cf == 1 or cpu_context.registers.zf == 1, instruction)
+
+
+@opcode
+def CMOVNAE(cpu_context: ProcessorContext, instruction: Instruction):
+    """Conditional move if not above or equal"""
+    _cmov(cpu_context.registers.cf == 1, instruction)
+
+
+@opcode
+def CMOVNB(cpu_context: ProcessorContext, instruction: Instruction):
+    """Conditional move if not below"""
+    _cmov(cpu_context.registers.cf == 0, instruction)
+
+
+@opcode
+def CMOVNC(cpu_context: ProcessorContext, instruction: Instruction):
+    """Conditional move if not carry"""
+    _cmov(cpu_context.registers.cf == 0, instruction)
+
+
+@opcode
+def CMOVNE(cpu_context: ProcessorContext, instruction: Instruction):
+    """Conditional move if not equal"""
+    _cmov(cpu_context.registers.zf == 0, instruction)
+
+
+@opcode
+def CMOVNG(cpu_context: ProcessorContext, instruction: Instruction):
+    """Conditional move if not greater"""
+    _cmov(cpu_context.registers.zf == 1 or cpu_context.registers.sf != cpu_context.registers.of, instruction)
+
+
+@opcode
+def CMOVNGE(cpu_context: ProcessorContext, instruction: Instruction):
+    """Conditional move if not greater or equal"""
+    _cmov(cpu_context.registers.cf != cpu_context.registers.of, instruction)
+
+
+@opcode
+def CMOVNL(cpu_context: ProcessorContext, instruction: Instruction):
+    """Conditional move if not less"""
+    _cmov(cpu_context.registers.cf == cpu_context.registers.of, instruction)
+
+
+@opcode
+def CMOVNLE(cpu_context: ProcessorContext, instruction: Instruction):
+    """Conditional move if not less or equal"""
+    _cmov(cpu_context.registers.zf == 0 and cpu_context.registers.cf == cpu_context.registers.of, instruction)
+
+
+@opcode
+def CMOVNO(cpu_context: ProcessorContext, instruction: Instruction):
+    """Conditional move if not overflow"""
+    _cmov(cpu_context.registers.of == 0, instruction)
+
+
+@opcode
+def CMOVO(cpu_context: ProcessorContext, instruction: Instruction):
+    """Conditional move if overflow"""
+    _cmov(cpu_context.registers.of == 1, instruction)
+
+
+@opcode
+def CMOVP(cpu_context: ProcessorContext, instruction: Instruction):
+    """Conditional move if parity"""
+    _cmov(cpu_context.registers.pf == 1, instruction)
+
+
+@opcode
+def CMOVPE(cpu_context: ProcessorContext, instruction: Instruction):
+    """Conditional move if parity even"""
+    _cmov(cpu_context.registers.pf == 1, instruction)
+
+
+@opcode
+def CMOVPO(cpu_context: ProcessorContext, instruction: Instruction):
+    """Conditional move if parity odd"""
+    _cmov(cpu_context.registers.pf == 0, instruction)
+
+
+@opcode
+def CMOVS(cpu_context: ProcessorContext, instruction: Instruction):
+    """Conditional move if sign"""
+    _cmov(cpu_context.registers.sf == 1, instruction)
+
+
+@opcode
+def CMOVZ(cpu_context: ProcessorContext, instruction: Instruction):
+    """Conditional move if zero"""
+    _cmov(cpu_context.registers.zf == 1, instruction)
+
+
 @opcode
 def CMP(cpu_context: ProcessorContext, instruction: Instruction):
     """ Compare to values """
